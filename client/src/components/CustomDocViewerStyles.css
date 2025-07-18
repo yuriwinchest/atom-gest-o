@@ -1,0 +1,230 @@
+/* Customização para o visualizador de documentos */
+
+/* Container principal */
+.react-doc-viewer {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Header personalizado */
+.react-doc-viewer .header {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Botões do header */
+.react-doc-viewer .header button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.react-doc-viewer .header button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.react-doc-viewer .header button:active {
+  transform: translateY(0);
+}
+
+/* Área de visualização */
+.react-doc-viewer .viewer-container {
+  border: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: white;
+  min-height: 90vh;
+  height: 90vh;
+  max-height: 90vh;
+}
+
+/* PDF específico */
+.react-doc-viewer .pdf-viewer {
+  background: #f8fafc;
+  min-height: 90vh;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Configuração para páginas do PDF */
+.react-doc-viewer .pdf-page {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  margin: 10px auto !important;
+  display: block !important;
+  page-break-after: always;
+}
+
+/* Container das páginas */
+.react-doc-viewer .pdf-pages-container {
+  width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+/* Cada página individual */
+.react-doc-viewer .pdf-page-wrapper {
+  width: 100% !important;
+  height: auto !important;
+  margin-bottom: 20px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Canvas do PDF */
+.react-doc-viewer .pdf-viewer canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  margin: 0 auto !important;
+  display: block !important;
+}
+
+/* Controles de zoom */
+.react-doc-viewer .zoom-controls {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  z-index: 10;
+}
+
+.react-doc-viewer .zoom-controls button {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  margin: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.react-doc-viewer .zoom-controls button:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+/* Responsividade mobile */
+@media (max-width: 768px) {
+  .react-doc-viewer .header {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  
+  .react-doc-viewer .header button {
+    padding: 6px 8px;
+    font-size: 12px;
+    margin: 0 2px;
+  }
+  
+  .react-doc-viewer .zoom-controls {
+    top: 60px;
+    right: 8px;
+    padding: 4px;
+  }
+  
+  .react-doc-viewer .zoom-controls button {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .react-doc-viewer .viewer-container {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  
+  .react-doc-viewer .pdf-viewer {
+    background: #0f172a;
+  }
+  
+  .react-doc-viewer .zoom-controls {
+    background: #1e293b;
+    border: 1px solid #334155;
+  }
+  
+  .react-doc-viewer .zoom-controls button {
+    background: #334155;
+    border-color: #475569;
+    color: #e2e8f0;
+  }
+  
+  .react-doc-viewer .zoom-controls button:hover {
+    background: #475569;
+    border-color: #64748b;
+  }
+}
+
+/* React-PDF TextLayer styles - Remove warnings */
+.react-pdf__Page__textContent {
+  top: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.react-pdf__Page__textContent span {
+  color: transparent !important;
+  position: absolute !important;
+  white-space: pre !important;
+  cursor: text !important;
+  transform-origin: 0% 0% !important;
+}
+
+/* React-PDF AnnotationLayer styles - Remove warnings */
+.react-pdf__Page__annotations {
+  top: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.react-pdf__Page__annotations .annotationLayer {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  pointer-events: auto !important;
+}
+
+.react-pdf__Page__annotations .linkAnnotation > a {
+  position: absolute !important;
+  font-size: 1em !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  color: transparent !important;
+  background: rgba(255, 255, 0, 0.2) !important;
+  box-shadow: 0px 2px 10px rgba(255, 255, 0, 0.2) !important;
+  border-radius: 2px !important;
+}
+
+.react-pdf__Page__annotations .linkAnnotation > a:hover {
+  background: rgba(255, 255, 0, 0.4) !important;
+}

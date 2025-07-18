@@ -1,0 +1,433 @@
+/* React-PDF estilos obrigatórios PRIMEIRO */
+@import 'react-pdf/dist/Page/TextLayer.css';
+@import 'react-pdf/dist/Page/AnnotationLayer.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* React-PDF TextLayer - Elimina warnings completamente */
+.react-pdf__Page__textContent {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  overflow: hidden !important;
+  opacity: 0.25 !important;
+  line-height: 1 !important;
+}
+
+.react-pdf__Page__textContent span {
+  position: absolute !important;
+  white-space: pre !important;
+  color: transparent !important;
+  transform-origin: 0% 0% !important;
+  cursor: text !important;
+  font-family: sans-serif !important;
+}
+
+.react-pdf__Page__textContent.textLayer {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  overflow: hidden !important;
+  opacity: 0.2 !important;
+  line-height: 1 !important;
+}
+
+/* React-PDF AnnotationLayer - Elimina warnings completamente */
+.react-pdf__Page__annotations {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  pointer-events: none !important;
+}
+
+.react-pdf__Page__annotations.annotationLayer {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+.react-pdf__Page__annotations section {
+  position: absolute !important;
+}
+
+.react-pdf__Page__annotations .linkAnnotation {
+  position: absolute !important;
+}
+
+.react-pdf__Page__annotations .linkAnnotation > a {
+  position: absolute !important;
+  font-size: 1em !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  color: rgba(0, 0, 255, 0.0) !important;
+  border: none !important;
+  pointer-events: auto !important;
+}
+
+.react-pdf__Page__annotations .linkAnnotation > a:hover {
+  opacity: 0.2 !important;
+  background: rgba(255, 255, 0, 0.2) !important;
+}
+
+.react-pdf__Page__annotations .textAnnotation img {
+  position: absolute !important;
+  cursor: pointer !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation input,
+.react-pdf__Page__annotations .textWidgetAnnotation textarea,
+.react-pdf__Page__annotations .choiceWidgetAnnotation select,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.radioButton input {
+  background: rgba(0, 54, 255, 0.13) !important;
+  border: 1px solid transparent !important;
+  box-sizing: border-box !important;
+  font-size: 9px !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 3px !important;
+  vertical-align: top !important;
+  width: 100% !important;
+}
+
+.react-pdf__Page__annotations .choiceWidgetAnnotation select option {
+  padding: 0 !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.radioButton input {
+  border-radius: 50% !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation textarea {
+  font: message-box !important;
+  font-size: 9px !important;
+  resize: none !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation input[disabled],
+.react-pdf__Page__annotations .textWidgetAnnotation textarea[disabled],
+.react-pdf__Page__annotations .choiceWidgetAnnotation select[disabled],
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input[disabled],
+.react-pdf__Page__annotations .buttonWidgetAnnotation.radioButton input[disabled] {
+  background: none !important;
+  border: 1px solid transparent !important;
+  cursor: not-allowed !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation input:hover,
+.react-pdf__Page__annotations .textWidgetAnnotation textarea:hover,
+.react-pdf__Page__annotations .choiceWidgetAnnotation select:hover,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:hover,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.radioButton input:hover {
+  border: 1px solid rgba(0, 0, 0, 1) !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation input:focus,
+.react-pdf__Page__annotations .textWidgetAnnotation textarea:focus,
+.react-pdf__Page__annotations .choiceWidgetAnnotation select:focus {
+  background: none !important;
+  border: 1px solid transparent !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:checked:before,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:checked:after,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.radioButton input:checked:before {
+  background-color: rgba(0, 0, 0, 1) !important;
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:checked:before,
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:checked:after {
+  height: 80% !important;
+  left: 45% !important;
+  width: 1px !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:checked:before {
+  transform: rotate(45deg) !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.checkBox input:checked:after {
+  transform: rotate(-45deg) !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.radioButton input:checked:before {
+  border-radius: 50% !important;
+  height: 50% !important;
+  left: 30% !important;
+  top: 20% !important;
+  width: 50% !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation input.comb {
+  font-family: monospace !important;
+  padding-left: 2px !important;
+  padding-right: 0 !important;
+}
+
+.react-pdf__Page__annotations .textWidgetAnnotation input.comb:focus {
+  width: 115% !important;
+}
+
+.react-pdf__Page__annotations .buttonWidgetAnnotation.pushButton > a {
+  color: rgba(0, 0, 255, 0.0) !important;
+  text-decoration: none !important;
+}
+
+.react-pdf__Page__annotations .invisibleAnnotation {
+  position: absolute !important;
+}
+
+/* Base styles for mobile responsiveness */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    overflow-x: hidden;
+    width: 100%;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+    width: 100%;
+    min-width: 320px; /* Minimum mobile width */
+  }
+  
+  #root {
+    width: 100%;
+    overflow-x: hidden;
+  }
+}
+
+/* Document Viewer - Arquitetura com Separação de Responsabilidades */
+.document-viewer-container {
+  position: relative !important;
+  isolation: isolate !important;
+  contain: layout !important;
+}
+
+.document-viewer-content {
+  position: relative !important;
+  contain: layout !important;
+}
+
+.document-viewer-renderer {
+  position: relative !important;
+  z-index: 1 !important;
+  contain: layout !important;
+}
+
+/* Metadados ficam em layer superior sem interferir */
+[data-metadata-toggle="true"],
+[data-collapsible="true"],
+.metadata-section {
+  z-index: 20 !important;
+  position: relative !important;
+  contain: layout !important;
+}
+
+/* Isolamento total de eventos entre metadados e viewer */
+[data-metadata-toggle="true"],
+[data-metadata-toggle="true"] *,
+[data-collapsible="true"],
+[data-collapsible="true"] * {
+  pointer-events: auto !important;
+}
+
+/* Garante que o viewer nunca seja afetado por mudanças de DOM */
+.isolated-doc-viewer * {
+  box-sizing: border-box !important;
+}
+
+/* CSS containment para máxima estabilidade */
+.isolated-doc-viewer {
+  contain: layout style paint size !important;
+}
+
+/* Utility classes */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Hide scrollbar while maintaining functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 640px) {
+  .container {
+    @apply px-2;
+  }
+  
+  .overflow-x-auto {
+    scrollbar-width: thin;
+  }
+  
+  /* Prevent horizontal scroll on mobile */
+  .mobile-no-scroll {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* React-PDF Styles */
+.react-pdf__Page {
+  position: relative;
+}
+
+.react-pdf__Page__textContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  color: transparent;
+  cursor: text;
+}
+
+.react-pdf__Page__annotations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.react-pdf__Page__canvas {
+  display: block;
+  user-select: none;
+}
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* Custom colors matching design */
+  --brand-blue: hsl(222, 84%, 54%);
+  --brand-blue-light: hsl(222, 84%, 64%);
+  --slate-custom: hsl(215, 25%, 46%);
+  --background-light: hsl(210, 40%, 98%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-brand-blue {
+    color: hsl(222, 84%, 54%);
+  }
+  
+  .text-brand-blue-light {
+    color: hsl(222, 84%, 64%);
+  }
+  
+  .text-slate-custom {
+    color: hsl(215, 25%, 46%);
+  }
+  
+  .bg-brand-blue {
+    background-color: hsl(222, 84%, 54%);
+  }
+  
+  .bg-brand-blue-light {
+    background-color: hsl(222, 84%, 64%);
+  }
+  
+  .bg-background-light {
+    background-color: hsl(210, 40%, 98%);
+  }
+  
+  .hover\:bg-blue-700:hover {
+    background-color: hsl(222, 84%, 45%);
+  }
+  
+  .hover\:text-brand-blue:hover {
+    color: hsl(222, 84%, 54%);
+  }
+  
+  .hover\:text-blue-700:hover {
+    color: hsl(222, 84%, 45%);
+  }
+}
