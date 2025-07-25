@@ -5,8 +5,13 @@
  */
 
 import React from 'react';
+import { AuthProtection } from '@/components/AuthProtection';
 import { DocumentManagementContainer } from '@/components/document-management/DocumentManagementContainer';
 
 export default function GestaoDocumentos() {
-  return <DocumentManagementContainer />;
+  return (
+    <AuthProtection>
+      <DocumentManagementContainer />
+    </AuthProtection>
+  );
 }

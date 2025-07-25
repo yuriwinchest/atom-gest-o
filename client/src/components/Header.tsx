@@ -160,9 +160,9 @@ export default function Header() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="flex items-center bg-red-50" asChild>
-                    <Link href="/test-form-debug">
+                    <Link href="/test-category-save">
                       <span className="mr-2">🧪</span>
-                      <span className="text-red-600 font-bold">PÁGINA DE TESTE DEBUG</span>
+                      <span className="text-red-600 font-bold">TESTE DE CATEGORIAS</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

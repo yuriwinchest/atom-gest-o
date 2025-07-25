@@ -51,6 +51,7 @@ export function SelectWithInlineEdit({
     if (lastAddedOption && options.length > 0) {
       const newOption = options.find(option => option.name === lastAddedOption);
       if (newOption) {
+        console.log(`🎯 [SelectWithInlineEdit] Selecionando automaticamente: "${lastAddedOption}"`);
         onValueChange(lastAddedOption);
         setLastAddedOption(null);
       }
@@ -82,6 +83,8 @@ export function SelectWithInlineEdit({
       return response.json();
     },
     onSuccess: (data) => {
+      console.log(`✅ [SelectWithInlineEdit] Nova opção criada:`, data);
+      
       toast({
         title: "Sucesso!",
         description: `${label} "${data.name}" criado com sucesso!`,
@@ -89,6 +92,7 @@ export function SelectWithInlineEdit({
       
       // Definir como última opção adicionada
       setLastAddedOption(data.name);
+      console.log(`📌 [SelectWithInlineEdit] Marcando para seleção automática: "${data.name}"`);
       
       // Limpar campo e sair do modo de edição
       setNewValue("");
@@ -96,6 +100,11 @@ export function SelectWithInlineEdit({
       
       // Invalidar cache para atualizar lista
       queryClient.invalidateQueries({ queryKey: [apiEndpoint] });
+      
+      // Aguardar um pouco antes de tentar selecionar
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: [apiEndpoint] });
+      }, 200);
     },
     onError: (error) => {
       toast({

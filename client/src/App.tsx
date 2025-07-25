@@ -27,8 +27,8 @@ import StorageMonitor from "@/pages/storage-monitor";
 import FooterPageView from "@/pages/footer-page";
 import NotFound from "@/pages/not-found";
 import LoginMonitoringDashboard from "@/pages/login-monitoring";
-import { TestFormDebug } from "@/pages/test-form-debug";
-import TestMenu from "@/pages/test-menu";
+import TestCategorySave from "@/pages/test-category-save";
+import TestDebugCategory from "@/pages/test-debug-category";
 
 function Router() {
   const [location] = useLocation();
@@ -48,7 +48,6 @@ function Router() {
           <Route path="/document/:id" component={DocumentDetails} />
           <Route path="/contato" component={Contato} />
           <Route path="/pages/:slug" component={FooterPageView} />
-          <Route path="/test-menu" component={TestMenu} />
           
           {/* ROTAS PRIVADAS - APENAS USUÁRIOS AUTENTICADOS */}
           <Route path="/gestao-documentos">
@@ -105,9 +104,15 @@ function Router() {
             </PrivateRoute>
           </Route>
           
-          <Route path="/test-form-debug">
+          <Route path="/test-category-save">
             <PrivateRoute>
-              <TestFormDebug />
+              <TestCategorySave />
+            </PrivateRoute>
+          </Route>
+          
+          <Route path="/test-debug-category">
+            <PrivateRoute>
+              <TestDebugCategory />
             </PrivateRoute>
           </Route>
           

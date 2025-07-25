@@ -224,6 +224,23 @@ export default function AdminPage({ user, onLogout }: AdminPageProps) {
               </Button>
             </CardContent>
           </Card>
+          
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/test-category-save')}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-orange-800 text-lg">
+                <AlertCircle className="h-5 w-5" />
+                Teste de Categorias
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 mb-3">
+                Teste definitivo para verificar salvamento de novas categorias no formulário
+              </p>
+              <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+                Testar Agora
+              </Button>
+            </CardContent>
+          </Card>
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/login-monitoring')}>
             <CardHeader className="pb-3">

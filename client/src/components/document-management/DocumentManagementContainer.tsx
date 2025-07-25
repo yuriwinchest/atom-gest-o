@@ -43,7 +43,8 @@ interface DocumentManagementContainerProps {
 }
 
 export const DocumentManagementContainer: React.FC<DocumentManagementContainerProps> = ({}) => {
-  const { user, isAuthenticated } = useOptimizedUser();
+  const { user } = useOptimizedUser();
+  const isAuthenticated = !!user;
   
   // Estados da UI
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');

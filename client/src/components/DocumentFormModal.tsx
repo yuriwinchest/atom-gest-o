@@ -72,7 +72,11 @@ export default function DocumentFormModal({
   };
 
   const updateField = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    console.log(`📝 [DocumentFormModal] Atualizando campo ${field}:`, value);
+    setFormData(prev => ({ 
+      ...prev, 
+      [field]: value 
+    }));
   };
 
   const addTag = () => {
@@ -138,6 +142,18 @@ export default function DocumentFormModal({
         fileSize: mainFile.size,
         category: selectedFileCategory || 'Documentos'
       };
+
+      // LOG TEMPORÁRIO PARA DEBUG
+      console.log('🔍 [DocumentFormModal] Dados sendo enviados:', {
+        documentType: finalData.documentType,
+        publicOrgan: finalData.publicOrgan,
+        responsibleSector: finalData.responsibleSector,
+        mainSubject: finalData.mainSubject,
+        confidentialityLevel: finalData.confidentialityLevel
+      });
+      
+      // LOG COMPLETO DOS DADOS
+      console.log('📦 [DocumentFormModal] DADOS COMPLETOS:', finalData);
 
       await onSubmit(finalData, mainFile, additionalImages);
       
