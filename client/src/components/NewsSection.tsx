@@ -1,20 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
-import { Bell, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Bell, ChevronLeft, ChevronRight, ArrowRight, ArrowUp } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
 export default function NewsSection() {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   // Buscar dados de atividades recentes do sistema
-  const { data: recentDocuments, isLoading: documentsLoading } = useQuery({
+  const { data: recentDocuments = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["/api/documents-with-related"],
   });
 
-  const { data: homepageContent, isLoading: contentLoading } = useQuery({
+  const { data: homepageContent = [], isLoading: contentLoading } = useQuery({
     queryKey: ["/api/homepage-content"],
   });
 
@@ -22,29 +22,35 @@ export default function NewsSection() {
 
   // Combinar notícias do sistema de conteúdo com atividades recentes
   const allNews: any[] = [];
-  
+
   // Adicionar notícias do sistema de conteúdo
-  if (homepageContent) {
+  if (Array.isArray(homepageContent)) {
     const newsItems = homepageContent.filter((item: any) => item.section === 'news');
     allNews.push(...newsItems.map((item: any) => ({
       id: `content-${item.id}`,
       title: item.title,
       description: item.description,
+      content: item.content,
+      image_url: item.image_url,
       type: 'Sistema',
       date: item.date || new Date().toLocaleDateString('pt-BR'),
-      source: 'Administração'
+      source: 'Administração',
+      featured: item.featured
     })));
   }
 
   // Adicionar atividades recentes de documentos
-  if (recentDocuments && recentDocuments.length > 0) {
+  if (Array.isArray(recentDocuments) && recentDocuments.length > 0) {
     const recentActivities = recentDocuments.slice(0, 5).map((doc: any) => ({
       id: `doc-${doc.id}`,
       title: `Novo documento: ${doc.title}`,
       description: doc.description || `Documento "${doc.title}" foi adicionado ao acervo`,
+      content: null,
+      image_url: null,
       type: 'Documento',
       date: new Date(doc.created_at || Date.now()).toLocaleDateString('pt-BR'),
-      source: doc.author || 'Sistema'
+      source: doc.author || 'Sistema',
+      featured: false
     }));
     allNews.push(...recentActivities);
   }
@@ -55,30 +61,26 @@ export default function NewsSection() {
       id: 'default',
       title: 'Sistema Documental Ativo',
       description: 'Sistema funcionando normalmente. Adicione documentos na gestão para ver atividades aqui.',
+      content: null,
+      image_url: null,
       type: 'Sistema',
       date: new Date().toLocaleDateString('pt-BR'),
-      source: 'Sistema'
+      source: 'Sistema',
+      featured: false
     });
   }
 
-  // Navegação do carrossel
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % allNews.length);
+  const toggleExpanded = (cardId: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(cardId)) {
+        newSet.delete(cardId);
+      } else {
+        newSet.add(cardId);
+      }
+      return newSet;
+    });
   };
-
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + allNews.length) % allNews.length);
-  };
-
-  // Auto-play do carrossel
-  useEffect(() => {
-    if (allNews.length > 1) {
-      const interval = setInterval(nextSlide, 5000); // 5 segundos
-      return () => clearInterval(interval);
-    }
-  }, [allNews.length, nextSlide]);
-
-  const currentNews = allNews[currentIndex];
 
   if (isLoading) {
     return (
@@ -88,19 +90,26 @@ export default function NewsSection() {
             <Skeleton className="h-6 sm:h-8 w-48 sm:w-64 mx-auto mb-3 sm:mb-4" />
             <Skeleton className="h-3 sm:h-4 w-64 sm:w-96 mx-auto" />
           </div>
-          <Card className="bg-blue-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
-            <div className="flex flex-col sm:flex-row items-start gap-4">
-              <Skeleton className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl mx-auto sm:mx-0" />
-              <div className="flex-1 space-y-2 sm:space-y-3 w-full">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Skeleton className="h-5 sm:h-6 w-20 sm:w-24 mx-auto sm:mx-0" />
-                  <Skeleton className="h-3 sm:h-4 w-12 sm:w-16 mx-auto sm:mx-0" />
-                </div>
-                <Skeleton className="h-5 sm:h-6 w-full" />
-                <Skeleton className="h-3 sm:h-4 w-2/3 sm:w-3/4 mx-auto sm:mx-0" />
-              </div>
-            </div>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
+                <Skeleton className="w-full h-48 sm:h-56" />
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+                    <Skeleton className="h-5 sm:h-6 w-16 sm:w-20 mx-auto sm:mx-0" />
+                    <Skeleton className="h-3 sm:h-4 w-20 sm:w-24 mx-auto sm:mx-0" />
+                  </div>
+                  <Skeleton className="h-5 sm:h-6 w-full mb-3" />
+                  <Skeleton className="h-3 sm:h-4 w-full mb-2" />
+                  <Skeleton className="h-3 sm:h-4 w-2/3 sm:w-3/4 mb-4" />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                    <Skeleton className="h-3 sm:h-4 w-20 sm:w-24 mx-auto sm:mx-0" />
+                    <Skeleton className="h-3 sm:h-4 w-12 sm:w-16 mx-auto sm:mx-0" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -116,82 +125,106 @@ export default function NewsSection() {
           </p>
         </div>
 
-        {currentNews && (
-          <div className="relative">
-            <Card className="bg-blue-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
-              <div className="flex flex-col sm:flex-row items-start gap-4">
-                <div className="flex-shrink-0 mx-auto sm:mx-0">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-brand-blue rounded-xl flex items-center justify-center">
-                    <Bell className="text-white" size={18} />
+        {/* Grid de cards em formato vertical */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          {allNews.map((news) => (
+            <Card
+              key={news.id}
+              className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 h-full flex flex-col"
+            >
+              {/* Imagem do card no topo */}
+              {news.image_url ? (
+                <div className="w-full h-48 sm:h-56 overflow-hidden">
+                  <img
+                    src={news.image_url}
+                    alt={news.title}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-48 sm:h-56 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+                  <div className="w-16 h-16 bg-brand-blue rounded-xl flex items-center justify-center">
+                    <Bell className="text-white" size={24} />
                   </div>
                 </div>
-                <div className="flex-1 text-center sm:text-left">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-                    <Badge className={`mx-auto sm:mx-0 w-fit ${
-                      currentNews.type === 'Sistema' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {currentNews.type}
+              )}
+
+              {/* Conteúdo do card */}
+              <CardContent className="p-4 sm:p-6 flex-1 flex flex-col">
+                {/* Badges e metadados */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <Badge className={`w-fit ${
+                    news.type === 'Sistema'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {news.type}
+                  </Badge>
+                  {news.featured && (
+                    <Badge className="w-fit bg-yellow-100 text-yellow-800">
+                      Destaque
                     </Badge>
-                    <span className="text-xs sm:text-sm text-slate-custom">
-                      {currentNews.date} • {currentNews.source}
-                    </span>
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
-                    {currentNews.title}
-                  </h3>
-                  <p className="text-sm sm:text-base text-slate-custom leading-relaxed">
-                    {currentNews.description}
-                  </p>
+                  )}
                 </div>
-              </div>
+
+                {/* Data e fonte */}
+                <div className="text-xs text-slate-custom mb-3">
+                  {news.date} • {news.source}
+                </div>
+
+                {/* Título */}
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 line-clamp-2">
+                  {news.title}
+                </h3>
+
+                {/* Descrição */}
+                <p className="text-sm sm:text-base text-slate-custom leading-relaxed mb-4 flex-1 line-clamp-3">
+                  {news.description}
+                </p>
+
+                {/* Conteúdo expandido */}
+                {expandedCards.has(news.id) && news.content && (
+                  <div className="mb-4 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                    <h4 className="font-semibold text-gray-900 mb-2 text-sm">Conteúdo completo:</h4>
+                    <div className="text-sm text-gray-700 whitespace-pre-line line-clamp-4">
+                      {news.content}
+                    </div>
+                  </div>
+                )}
+
+                {/* Botão expandir e rodapé */}
+                <div className="mt-auto">
+                  {news.content && (
+                    <div className="flex justify-center mb-3">
+                      <button
+                        onClick={() => toggleExpanded(news.id)}
+                        className="text-brand-blue hover:text-blue-700 font-medium text-sm flex items-center space-x-1 transition-colors"
+                      >
+                        <span>{expandedCards.has(news.id) ? 'Ler menos' : 'Ler mais'}</span>
+                        {expandedCards.has(news.id) ? (
+                          <ArrowUp size={12} />
+                        ) : (
+                          <ArrowRight size={12} />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Indicador de tipo */}
+                  <div className="text-center">
+                    <div className="inline-block w-2 h-2 bg-brand-blue rounded-full"></div>
+                  </div>
+                </div>
+              </CardContent>
             </Card>
+          ))}
+        </div>
 
-            {/* Controles do carrossel */}
-            {allNews.length > 1 && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white border-gray-200 shadow-lg"
-                  onClick={prevSlide}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white border-gray-200 shadow-lg"
-                  onClick={nextSlide}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Indicadores de paginação dinâmicos */}
-        {allNews.length > 1 && (
-          <div className="flex justify-center space-x-2">
-            {allNews.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentIndex(index)}
-                className={`w-3 h-3 rounded-full transition-colors duration-200 ${
-                  index === currentIndex ? 'bg-brand-blue' : 'bg-gray-300 hover:bg-gray-400'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Informações do carrossel */}
-        {allNews.length > 1 && (
-          <div className="text-center mt-4">
-            <p className="text-xs text-gray-500">
-              {currentIndex + 1} de {allNews.length} • Atualização automática a cada 5 segundos
+        {/* Informações sobre os cards */}
+        {allNews.length > 0 && (
+          <div className="text-center mt-8">
+            <p className="text-sm text-gray-500">
+              {allNews.length} notícia{allNews.length > 1 ? 's' : ''} disponível{allNews.length > 1 ? 'is' : ''}
             </p>
           </div>
         )}

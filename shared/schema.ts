@@ -59,6 +59,7 @@ export const homepage_content = pgTable("homepage_content", {
   content: text("content"),
   image_url: text("image_url"), // Campo para URL da imagem
   featured: boolean("featured").default(false), // Campo para destacar card
+  is_published: boolean("is_published").default(false), // Campo para controlar publicação
   category: text("category"),
   author: text("author"),
   date: text("date"),

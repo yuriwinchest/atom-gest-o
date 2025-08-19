@@ -2048,32 +2048,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const extension = file.originalname.split('.').pop();
       const fileName = `homepage_${timestamp}_${randomStr}.${extension}`;
 
-      // Importar cliente Supabase com fallback para ambientes diferentes
-      let supabase;
+      // Importar cliente Supabase ADMINISTRATIVO para bypass RLS
+      let supabaseAdmin;
       try {
-        console.log('🔄 HOMEPAGE - Tentando carregar Supabase via ES modules...');
+        console.log('🔄 HOMEPAGE - Tentando carregar Supabase ADMIN via ES modules...');
         const supabaseModule = await import("./supabase");
-        supabase = supabaseModule.supabase;
-        console.log('✅ HOMEPAGE - Supabase carregado via ES modules');
+        supabaseAdmin = supabaseModule.supabaseAdmin;
+        console.log('✅ HOMEPAGE - Supabase ADMIN carregado via ES modules');
       } catch (esError) {
         console.error('❌ HOMEPAGE - Erro ao carregar via ES modules:', esError.message);
         try {
-          console.log('🔄 HOMEPAGE - Tentando carregar Supabase via CommonJS...');
+          console.log('🔄 HOMEPAGE - Tentando carregar Supabase ADMIN via CommonJS...');
           const supabaseModule = require("./supabase");
-          supabase = supabaseModule.supabase;
-          console.log('✅ HOMEPAGE - Supabase carregado via CommonJS');
+          supabaseAdmin = supabaseModule.supabaseAdmin;
+          console.log('✅ HOMEPAGE - Supabase ADMIN carregado via CommonJS');
         } catch (cjsError) {
           console.error('❌ HOMEPAGE - Erro ao carregar via CommonJS:', cjsError.message);
           return res.status(500).json({
-            message: "Erro crítico na configuração do Supabase",
+            message: "Erro crítico na configuração do Supabase ADMIN",
             esError: esError.message,
             cjsError: cjsError.message
           });
         }
       }
 
-      // Upload para Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      // Verificar se o cliente administrativo está disponível
+      if (!supabaseAdmin) {
+        console.error('❌ Cliente Supabase ADMIN não disponível');
+        return res.status(500).json({
+          message: "Erro: Cliente administrativo não configurado",
+          error: "Service key não configurada"
+        });
+      }
+
+      // Upload para Supabase Storage usando cliente ADMINISTRATIVO (bypass RLS)
+      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
         .from(bucket)
         .upload(fileName, file.buffer, {
           cacheControl: '3600',
@@ -2088,8 +2097,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("✅ Upload realizado com sucesso:", uploadData.path);
 
-      // Obter URL pública do arquivo
-      const { data: urlData } = supabase.storage
+      // Obter URL pública do arquivo usando cliente ADMINISTRATIVO
+      const { data: urlData } = supabaseAdmin.storage
         .from(bucket)
         .getPublicUrl(fileName);
 
@@ -3163,13 +3172,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============= ROTAS PARA GERENCIAR CONTEÚDO DA PÁGINA INICIAL =============
 
-  // Obter conteúdo da página inicial
+  // Obter conteúdo da página inicial (apenas cards publicados)
   app.get("/api/homepage-content", async (req, res) => {
     try {
       const content = await storage.getHomepageContent();
       res.json(content);
     } catch (error) {
       console.error("Erro ao obter conteúdo da página inicial:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // Obter todos os cards (incluindo não publicados) para o painel administrativo
+  app.get("/api/admin/homepage-content", async (req, res) => {
+    try {
+      const userId = (req.session as any)?.user?.id;
+      const userRole = (req.session as any)?.user?.role;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Usuário não autenticado" });
+      }
+
+      // Apenas admins podem acessar todos os cards
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: "Apenas administradores podem acessar todos os cards" });
+      }
+
+      const content = await storage.getAllHomepageContent();
+      res.json(content);
+    } catch (error) {
+      console.error("Erro ao obter todos os cards da homepage:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });

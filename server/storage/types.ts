@@ -44,6 +44,7 @@ export interface IStorage {
 
   // Homepage content methods
   getHomepageContent(): Promise<HomepageContent[]>;
+  getAllHomepageContent(): Promise<HomepageContent[]>; // Para painel administrativo
   createHomepageContent(content: InsertHomepageContent): Promise<HomepageContent>;
   updateHomepageContent(id: number, content: Partial<InsertHomepageContent>): Promise<HomepageContent | undefined>;
   deleteHomepageContent(id: number): Promise<boolean>;

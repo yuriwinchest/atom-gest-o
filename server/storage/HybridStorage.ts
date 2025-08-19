@@ -637,6 +637,7 @@ export class HybridStorage implements IStorage {
           .from('homepage_content')
           .select('*')
           .eq('is_active', true)
+          .eq('is_published', true) // Filtrar apenas cards publicados
           .order('order_index', { ascending: true })
           .order('created_at', { ascending: false });
 
@@ -648,6 +649,31 @@ export class HybridStorage implements IStorage {
         return data || [];
       } catch (error) {
         console.error('Erro na busca de conteúdo da homepage:', error);
+        return [];
+      }
+    }
+    return [];
+  }
+
+  // Método para obter todos os cards (incluindo não publicados) para o painel administrativo
+  async getAllHomepageContent(): Promise<any[]> {
+    if (this.isSupabaseAvailable) {
+      try {
+        const { data, error } = await supabase
+          .from('homepage_content')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_index', { ascending: true })
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar todos os cards da homepage:', error);
+          throw error;
+        }
+
+        return data || [];
+      } catch (error) {
+        console.error('Erro na busca de todos os cards da homepage:', error);
         return [];
       }
     }
@@ -671,6 +697,7 @@ export class HybridStorage implements IStorage {
             date: content.date || null,
             order_index: content.order_index || 0,
             is_active: content.is_active !== false,
+            is_published: content.is_published || false, // Incluir campo de publicação
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
@@ -706,6 +733,7 @@ export class HybridStorage implements IStorage {
       date: content.date || null,
       order_index: content.order_index || 0,
       is_active: content.is_active !== false,
+      is_published: content.is_published || false, // Incluir campo de publicação
       created_at: new Date(),
       updated_at: new Date()
     };

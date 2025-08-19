@@ -317,16 +317,16 @@ export const UserCard: React.FC<UserCardProps> = ({
                 <h4 className="font-medium text-purple-800 mb-2">⚙️ Preferências</h4>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-600 cursor-pointer">Tema escuro</label>
-                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                    <label htmlFor="dark-theme" className="text-sm text-gray-600 cursor-pointer">Tema escuro</label>
+                    <input id="dark-theme" type="checkbox" className="w-4 h-4 text-purple-600" />
                   </div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-600 cursor-pointer">Notificações por email</label>
-                    <input type="checkbox" className="w-4 h-4 text-purple-600" defaultChecked />
+                    <label htmlFor="email-notifications" className="text-sm text-gray-600 cursor-pointer">Notificações por email</label>
+                    <input id="email-notifications" type="checkbox" className="w-4 h-4 text-purple-600" defaultChecked />
                   </div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-600 cursor-pointer">Autenticação de dois fatores</label>
-                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                    <label htmlFor="two-factor" className="text-sm text-gray-600 cursor-pointer">Autenticação de dois fatores</label>
+                    <input id="two-factor" type="checkbox" className="w-4 h-4 text-purple-600" />
                   </div>
                 </div>
               </div>

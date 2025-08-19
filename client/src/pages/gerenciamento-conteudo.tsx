@@ -464,6 +464,7 @@ interface HomepageCard {
   section: string;
   featured: boolean;
   image_url?: string;
+  is_published?: boolean;
 }
 
 export default function GerenciamentoConteudo() {
@@ -489,11 +490,11 @@ export default function GerenciamentoConteudo() {
     );
   }
 
-  // Buscar dados dos cards da página inicial
+  // Buscar dados dos cards da página inicial (incluindo não publicados para o painel administrativo)
   const { data: content = [], isLoading, error } = useQuery<HomepageCard[]>({
-    queryKey: ['/api/homepage-content'],
+    queryKey: ['/api/admin/homepage-content'],
     queryFn: async () => {
-      const response = await fetch('/api/homepage-content');
+      const response = await fetch('/api/admin/homepage-content');
       if (!response.ok) throw new Error('Erro ao carregar conteúdo');
       return response.json();
     }
@@ -506,7 +507,8 @@ export default function GerenciamentoConteudo() {
     content: '',
     section: 'news',
     featured: false,
-    image_url: ''
+    image_url: '',
+    is_published: false
   });
 
   // Função para fazer upload de imagem para o Supabase
@@ -552,7 +554,7 @@ export default function GerenciamentoConteudo() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/homepage-content'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/homepage-content'] });
       setIsCreating(false);
       setCardForm({
         title: '',
@@ -560,7 +562,8 @@ export default function GerenciamentoConteudo() {
         content: '',
         section: 'news',
         featured: false,
-        image_url: ''
+        image_url: '',
+        is_published: false
       });
     }
   });
@@ -580,7 +583,7 @@ export default function GerenciamentoConteudo() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/homepage-content'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/homepage-content'] });
       setEditingCard(null);
       setCardForm({
         title: '',
@@ -588,7 +591,8 @@ export default function GerenciamentoConteudo() {
         content: '',
         section: 'news',
         featured: false,
-        image_url: ''
+        image_url: '',
+        is_published: false
       });
     }
   });
@@ -606,7 +610,42 @@ export default function GerenciamentoConteudo() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/homepage-content'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/homepage-content'] });
+    }
+  });
+
+  // Mutação para publicar card
+  const publishCardMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/homepage-content/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_published: true })
+      });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Erro ao publicar card: ${error}`);
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/homepage-content'] });
+      toast({
+        title: "Sucesso!",
+        description: "Card publicado com sucesso! Redirecionando para a página inicial...",
+      });
+
+      // Redirecionar para a página inicial após 2 segundos
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: `Erro ao publicar card: ${error.message}`,
+        variant: "destructive"
+      });
     }
   });
 
@@ -667,7 +706,8 @@ export default function GerenciamentoConteudo() {
       content: card.content || '',
       section: card.section,
       featured: card.featured,
-      image_url: card.image_url || ''
+      image_url: card.image_url || '',
+      is_published: card.is_published || false
     });
   };
 
@@ -682,7 +722,8 @@ export default function GerenciamentoConteudo() {
       content: '',
       section: 'news',
       featured: false,
-      image_url: ''
+      image_url: '',
+      is_published: false
     });
   };
 
@@ -697,7 +738,8 @@ export default function GerenciamentoConteudo() {
       content: '',
       section: 'news',
       featured: false,
-      image_url: ''
+      image_url: '',
+      is_published: false
     });
   };
 
@@ -991,6 +1033,18 @@ export default function GerenciamentoConteudo() {
                       <Label htmlFor="featured">Card em destaque</Label>
                     </div>
 
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="is_published"
+                        checked={cardForm.is_published}
+                        onChange={(e) => setCardForm(prev => ({ ...prev, is_published: e.target.checked }))}
+                        className="h-4 w-4"
+                          aria-label="Publicar card imediatamente"
+                      />
+                      <Label htmlFor="is_published">Publicar imediatamente</Label>
+                    </div>
+
                     <div className="flex gap-2">
                       <Button
                         type="submit"
@@ -1032,6 +1086,15 @@ export default function GerenciamentoConteudo() {
                           {card.featured && (
                             <Badge className="bg-yellow-100 text-yellow-800">
                               Destaque
+                            </Badge>
+                          )}
+                          {card.is_published ? (
+                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                              ✅ Publicado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-600 border-gray-200">
+                              📝 Rascunho
                             </Badge>
                           )}
                         </div>
@@ -1079,6 +1142,36 @@ export default function GerenciamentoConteudo() {
                         <Edit className="h-3 w-3 mr-1" />
                         Editar
                       </Button>
+
+                      {!card.is_published && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => {
+                            if (confirm('Deseja publicar este card na página inicial?')) {
+                              publishCardMutation.mutate(card.id);
+                            }
+                          }}
+                          disabled={publishCardMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          {publishCardMutation.isPending ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                          ) : (
+                            <>
+                              <Share2 className="h-3 w-3 mr-1" />
+                              Publicar
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {card.is_published && (
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          ✅ Publicado
+                        </Badge>
+                      )}
+
                       <Button
                         size="sm"
                         variant="outline"
