@@ -13,7 +13,7 @@ export default function GerenciarConteudo() {
   const queryClient = useQueryClient();
   const [isNewCardModalOpen, setIsNewCardModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<HomepageContent | null>(null);
-  
+
   // Form states
   const [newCard, setNewCard] = useState({
     section: 'news',
@@ -132,12 +132,12 @@ export default function GerenciarConteudo() {
   // Handlers
   const handleCreateCard = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newCard.title || !newCard.description) {
       alert('Título e descrição são obrigatórios');
       return;
     }
-    
+
     createContentMutation.mutate(newCard);
   };
 
@@ -249,10 +249,11 @@ export default function GerenciarConteudo() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Seção</label>
-                      <select 
+                      <select
                         value={newCard.section}
                         onChange={(e) => setNewCard({...newCard, section: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Selecionar seção do card"
                       >
                         <option value="news">Notícias</option>
                         <option value="features">Funcionalidades</option>
@@ -267,7 +268,7 @@ export default function GerenciarConteudo() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium mb-2">Título</label>
                     <Input
@@ -277,10 +278,10 @@ export default function GerenciarConteudo() {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium mb-2">Descrição</label>
-                    <Textarea 
+                    <Textarea
                       placeholder="Digite a descrição do card"
                       className="min-h-[100px]"
                       value={newCard.description}
@@ -307,15 +308,15 @@ export default function GerenciarConteudo() {
                   </div>
 
                   <div className="flex justify-end gap-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => setIsNewCardModalOpen(false)}
                     >
                       Cancelar
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       disabled={createContentMutation.isPending}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
@@ -362,9 +363,9 @@ export default function GerenciarConteudo() {
                         <Button variant="ghost" size="sm">
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-red-600 hover:text-red-700"
                           onClick={() => handleDeleteCard(card.id)}
                         >
@@ -402,9 +403,9 @@ export default function GerenciarConteudo() {
                         <Button variant="ghost" size="sm">
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-red-600 hover:text-red-700"
                           onClick={() => handleDeleteCard(card.id)}
                         >
@@ -438,10 +439,11 @@ export default function GerenciarConteudo() {
                   <label className="block text-sm font-medium mb-2">
                     Quantidade de cards na página inicial
                   </label>
-                  <select 
+                  <select
                     value={settings.cards_count}
                     onChange={(e) => setSettings({...settings, cards_count: parseInt(e.target.value)})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Selecionar quantidade de cards"
                   >
                     <option value={2}>2 cartões</option>
                     <option value={3}>3 cartões</option>
@@ -456,10 +458,11 @@ export default function GerenciarConteudo() {
                   <label className="block text-sm font-medium mb-2">
                     Ordenação na página
                   </label>
-                  <select 
+                  <select
                     value={settings.cards_order}
                     onChange={(e) => setSettings({...settings, cards_order: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Selecionar ordenação dos cards"
                   >
                     <option value="recent">Mais recentes primeiro</option>
                     <option value="popular">Mais populares primeiro</option>
@@ -468,8 +471,8 @@ export default function GerenciarConteudo() {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={updateSettingsMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700"
               >

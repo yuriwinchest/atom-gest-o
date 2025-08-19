@@ -5,7 +5,6 @@
 
 import React, { useState } from 'react';
 import { DocumentGrid } from './DocumentGrid';
-import DocumentFormInline from '../DocumentFormInline';
 import SimpleEditDocumentModal from '../SimpleEditDocumentModal';
 import { useDocumentOperations } from '@/hooks/useDocumentOperations';
 import { useOptimizedUser } from '@/hooks/useOptimizedUser';
@@ -16,12 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Folder, 
-  FileText, 
-  Image, 
-  Video, 
-  Music, 
+import {
+  Folder,
+  FileText,
+  Image,
+  Video,
+  Music,
   Archive,
   Upload,
   Search,
@@ -31,6 +30,7 @@ import {
 import { cn } from '@/lib/utils';
 import { UploadProgressModal } from './UploadProgressModal';
 import type { Document } from '@shared/schema';
+import { DocumentFormContainer } from '../document-form/DocumentFormContainer';
 
 const ITEMS_PER_PAGE = 4;
 
@@ -45,7 +45,7 @@ interface DocumentManagementContainerProps {
 export const DocumentManagementContainer: React.FC<DocumentManagementContainerProps> = ({}) => {
   const { user } = useOptimizedUser();
   const isAuthenticated = !!user;
-  
+
   // Estados da UI
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,8 +93,8 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
   });
 
   // Filtros
-  const filteredDocuments = documents.filter((doc: Document) => {
-    const matchesSearch = searchQuery === '' || 
+  const filteredDocuments = (documents as Document[] || []).filter((doc: Document) => {
+    const matchesSearch = searchQuery === '' ||
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.description && doc.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (doc.tags && doc.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase())));
@@ -119,7 +119,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
   // Handlers
   const handleDocumentFormSubmit = async (formData: any, attachedImages?: File[], mainFile?: File) => {
     const fileToUpload = mainFile || selectedFile;
-    
+
     if (!fileToUpload) {
       alert('Nenhum arquivo selecionado para upload!');
       return;
@@ -203,7 +203,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
             </Badge>
           </div>
           <div className="flex gap-2">
-            <Button 
+            <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => setIsDocumentFormOpen(true)}
             >
@@ -228,7 +228,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
                   {categories.map((category) => {
                     const Icon = category.icon;
                     const isSelected = selectedCategory === category.type;
-                    
+
                     return (
                       <button
                         key={category.type}
@@ -246,7 +246,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
                           <span className="text-xs font-medium">{category.name}</span>
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          {category.type === 'Todos' ? categoryCounts['all'] : categoryCounts[category.type] || 0}
+                          {category.type === 'Todos' ? (categoryCounts as any)['all'] : (categoryCounts as any)[category.type] || 0}
                         </Badge>
                       </button>
                     );
@@ -304,7 +304,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
                   onAttach={handleAttachDocument}
                   isAuthenticated={isAuthenticated}
                 />
-                
+
                 {/* Controles de Paginação */}
                 {filteredDocuments.length > ITEMS_PER_PAGE && (
                   <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -322,7 +322,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
                         <span className="sm:hidden">←</span>
                         <span className="hidden sm:inline">Anterior</span>
                       </Button>
-                      
+
                       {/* Números de página - mostrar menos em mobile */}
                       <div className="flex items-center gap-0.5 sm:gap-1">
                         {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -348,7 +348,7 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
                             </React.Fragment>
                           ))}
                       </div>
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -384,8 +384,10 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-3 px-6 -m-6 mb-6 rounded-t-lg">
             <h2 className="text-xl font-bold">Enviar Documentos</h2>
           </div>
-          
-          <DocumentFormInline
+
+          <DocumentFormContainer
+            isOpen={isDocumentFormOpen}
+            onClose={() => setIsDocumentFormOpen(false)}
             onSubmit={handleDocumentFormSubmit}
             selectedFile={selectedFile}
             onFileSelect={setSelectedFile}
@@ -401,10 +403,10 @@ export const DocumentManagementContainer: React.FC<DocumentManagementContainerPr
           document={editingDocument}
           isOpen={true}
           onClose={() => setEditingDocument(null)}
-          onSave={handleEditSave}
+          onSave={handleEditSubmit}
         />
       )}
-      
+
     </div>
   );
 };

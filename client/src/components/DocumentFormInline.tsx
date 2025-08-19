@@ -60,7 +60,7 @@ export default function DocumentFormInline({ onSubmit, onCancel }: DocumentFormI
       const newDigitalId = generateDigitalId();
       setFormData(prev => ({ ...prev, digitalId: newDigitalId }));
     }
-    
+
     // Generate hash when file is selected
     if (mainFile && !formData.verificationHash) {
       calculateHash(mainFile).then(hash => {
@@ -100,7 +100,7 @@ export default function DocumentFormInline({ onSubmit, onCancel }: DocumentFormI
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validação de campos obrigatórios
     const requiredFields = [
       { field: 'title', label: 'Título' },
@@ -110,12 +110,12 @@ export default function DocumentFormInline({ onSubmit, onCancel }: DocumentFormI
       { field: 'mainSubject', label: 'Assunto Principal' },
       { field: 'description', label: 'Descrição' }
     ];
-    
+
     const missingFields = requiredFields.filter(({ field }) => {
       const value = formData[field as keyof typeof formData];
       return !value || value.toString().trim() === '';
     });
-    
+
     if (missingFields.length > 0) {
       toast({
         title: 'Campos obrigatórios',
@@ -124,7 +124,7 @@ export default function DocumentFormInline({ onSubmit, onCancel }: DocumentFormI
       });
       return;
     }
-    
+
     if (!mainFile) {
       toast({
         title: 'Arquivo obrigatório',
@@ -133,13 +133,13 @@ export default function DocumentFormInline({ onSubmit, onCancel }: DocumentFormI
       });
       return;
     }
-    
+
     // Limpar espaços em branco antes de enviar
     const cleanedFormData = Object.entries(formData).reduce((acc, [key, value]) => {
       acc[key as keyof typeof formData] = typeof value === 'string' ? value.trim() : value;
       return acc;
     }, {} as typeof formData);
-    
+
     onSubmit(cleanedFormData, mainFile, additionalImages);
   };
 
@@ -358,12 +358,85 @@ export default function DocumentFormInline({ onSubmit, onCancel }: DocumentFormI
               </div>
               <div>
                 <Label htmlFor="keywords">Palavras-chave</Label>
+                <div className="flex gap-2 mb-2">
                 <Input
                   id="keywords"
                   value={formData.keywords}
                   onChange={(e) => handleInputChange('keywords', e.target.value)}
                   placeholder="Digite as palavras-chave separadas por vírgula"
-                />
+                    className="flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (formData.keywords.trim()) {
+                          // Separar por vírgula e limpar espaços
+                          const keywords = formData.keywords
+                            .split(',')
+                            .map(k => k.trim())
+                            .filter(k => k.length > 0);
+
+                          // Atualizar o campo com as palavras separadas
+                          handleInputChange('keywords', keywords.join(', '));
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (formData.keywords.trim()) {
+                        // Separar por vírgula e limpar espaços
+                        const keywords = formData.keywords
+                          .split(',')
+                          .map(k => k.trim())
+                          .filter(k => k.length > 0);
+
+                        // Atualizar o campo com as palavras separadas
+                        handleInputChange('keywords', keywords.join(', '));
+                      }
+                    }}
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+
+                {/* Exibir tags separadas */}
+                {formData.keywords && formData.keywords.includes(',') && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.keywords
+                      .split(',')
+                      .map((keyword, index) => keyword.trim())
+                      .filter(keyword => keyword.length > 0)
+                      .map((keyword, index) => (
+                        <span
+                          key={index}
+                          className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm flex items-center gap-1"
+                        >
+                          {keyword}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const keywords = formData.keywords
+                                .split(',')
+                                .map(k => k.trim())
+                                .filter(k => k.length > 0 && k !== keyword);
+                              handleInputChange('keywords', keywords.join(', '));
+                            }}
+                            className="text-blue-600 hover:text-blue-800 ml-1 font-bold text-lg leading-none"
+                            title="Remover palavra-chave"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                  </div>
+                )}
+
+                {/* Texto de ajuda */}
+                <p className="text-xs text-gray-500 mt-1">
+                  Digite as palavras-chave e clique em "Adicionar" ou pressione Enter para separá-las
+                </p>
               </div>
             </CollapsibleContent>
           </Collapsible>

@@ -24,6 +24,7 @@ export interface User {
 export const UserManagementContainer: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [expandedAdminId, setExpandedAdminId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -47,12 +48,12 @@ export const UserManagementContainer: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
-      
+
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error);
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
@@ -78,12 +79,12 @@ export const UserManagementContainer: React.FC = () => {
       const response = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
       });
-      
+
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error);
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -124,6 +125,18 @@ export const UserManagementContainer: React.FC = () => {
 
   const handleSelectUser = (user: User) => {
     setSelectedUser(selectedUser?.id === user.id ? null : user);
+  };
+
+  const handleExpandAdmin = (userId: number) => {
+    setExpandedAdminId(expandedAdminId === userId ? null : userId);
+  };
+
+  const handleEditProfile = (userId: number) => {
+    // Implementar edição de perfil
+    toast({
+      title: "Funcionalidade em desenvolvimento",
+      description: "Edição de perfil será implementada em breve",
+    });
   };
 
   const isAdmin = currentUser?.user?.role === 'admin';
@@ -174,6 +187,9 @@ export const UserManagementContainer: React.FC = () => {
             currentUserId={currentUser?.user?.id}
             onDelete={handleDeleteUser}
             isDeleting={deleteUserMutation.isPending}
+            onEditProfile={handleEditProfile}
+            onExpandAdmin={handleExpandAdmin}
+            isExpanded={expandedAdminId === selectedUser.id}
           />
         )}
       </div>

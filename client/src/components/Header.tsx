@@ -13,7 +13,6 @@ import {
   LogIn,
   User,
   LogOut,
-  Settings,
   Users,
   FileText,
   ChevronDown,
@@ -48,9 +47,9 @@ export default function Header() {
           {/* Logo do Sistema - responsivo */}
           <div className="flex items-center min-w-0">
             <div className="flex-shrink-0 bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-              <img 
-                src="/logosistema.jpg" 
-                alt="Logo IMPL - Instituto Memória do Poder Legislativo ALMT" 
+              <img
+                src="/logosistema.jpg"
+                alt="Logo IMPL - Instituto Memória do Poder Legislativo ALMT"
                 className="h-6 w-auto sm:h-8 object-contain"
                 onError={(e) => {
                   // Fallback para ícone se imagem não carregar
@@ -65,13 +64,11 @@ export default function Header() {
           </div>
 
           {/* Navegação Principal - Desktop */}
-          <nav className="hidden lg:flex items-center space-x-6 min-w-0">
+          <nav className="hidden md:flex space-x-8">
             <Link
               href="/"
-              className={`transition-colors duration-200 font-medium ${
-                location === "/"
-                  ? "text-yellow-300 font-bold"
-                  : "text-white hover:text-yellow-300"
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                location === "/" ? "text-amber-400" : "text-white"
               }`}
             >
               Início
@@ -79,25 +76,13 @@ export default function Header() {
             {isAuthenticated && (
               <Link
                 href="/gestao-documentos"
-                className={`transition-colors duration-200 font-medium ${
-                  location === "/gestao-documentos"
-                    ? "text-yellow-300 font-bold"
-                    : "text-white hover:text-yellow-300"
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  location === "/gestao-documentos" ? "text-amber-400" : "text-white"
                 }`}
               >
                 Gestão de Documentos
               </Link>
             )}
-            <Link
-              href="/validacao-formulario"
-              className={`transition-colors duration-200 font-medium ${
-                location === "/validacao-formulario"
-                  ? "text-yellow-300 font-bold"
-                  : "text-white hover:text-yellow-300"
-              }`}
-            >
-              Validação de Formulário
-            </Link>
           </nav>
 
           {/* Ações do Usuário - responsivo */}
@@ -134,12 +119,7 @@ export default function Header() {
                       Meu Perfil
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center" asChild>
-                    <Link href="/user/settings">
-                      <Settings className="mr-2 h-4 w-4 text-gray-600" />
-                      Configurações
-                    </Link>
-                  </DropdownMenuItem>
+
                   <DropdownMenuItem className="flex items-center" asChild>
                     <Link href="/profile-management">
                       <User className="mr-2 h-4 w-4 text-purple-600" />
@@ -156,6 +136,13 @@ export default function Header() {
                     <Link href="/gerenciar-conteudo">
                       <FileText className="mr-2 h-4 w-4 text-orange-600" />
                       Gerenciar Conteúdo
+                    </Link>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem className="flex items-center" asChild>
+                    <Link href="/gestao-documentos-clean">
+                      <FileText className="mr-2 h-4 w-4 text-green-600" />
+                      <span className="text-green-600">Sistema Híbrido</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -225,17 +212,6 @@ export default function Header() {
                   Gestão de Documentos
                 </Link>
               )}
-              <Link
-                href="/validacao-formulario"
-                className={`transition-colors duration-200 font-medium px-3 py-2 rounded ${
-                  location === "/validacao-formulario"
-                    ? "text-yellow-300 bg-white/10 font-bold"
-                    : "text-white hover:text-yellow-300 hover:bg-white/10"
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Validação de Formulário
-              </Link>
             </nav>
           </div>
         )}

@@ -55,7 +55,7 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0)
         .filter(tag => !formData.tags?.includes(tag));
-      
+
       if (newTags.length > 0) {
         updateField('tags', [...(formData.tags || []), ...newTags]);
         setNewTag('');
@@ -74,8 +74,8 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
     <div className="space-y-4">
       {/* Seção 1: Identificação */}
       <Card className="border-blue-200">
-        <Collapsible 
-          open={openSections.identification} 
+        <Collapsible
+          open={openSections.identification}
           onOpenChange={() => toggleSection('identification')}
         >
           <CollapsibleTrigger asChild>
@@ -101,7 +101,7 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
                     className="h-8 text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-medium mb-1">
                     Tipo {isFieldRequired('documentType') && <span className="text-red-500">*</span>}
@@ -135,8 +135,8 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
 
       {/* Seção 2: Origem */}
       <Card className="border-green-200">
-        <Collapsible 
-          open={openSections.origin} 
+        <Collapsible
+          open={openSections.origin}
           onOpenChange={() => toggleSection('origin')}
         >
           <CollapsibleTrigger asChild>
@@ -188,6 +188,19 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
                     className="h-8 text-sm"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1">
+                    Proveniência {isFieldRequired('provenience') && <span className="text-red-500">*</span>}
+                  </label>
+                  <Input
+                    value={formData.provenience || ''}
+                    onChange={(e) => updateField('provenience', e.target.value)}
+                    placeholder="Origem, fonte ou procedência"
+                    disabled={isLoading}
+                    className="h-8 text-sm"
+                  />
+                </div>
               </div>
             </CardContent>
           </CollapsibleContent>
@@ -196,8 +209,8 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
 
       {/* Seção 3: Classificação */}
       <Card className="border-yellow-200">
-        <Collapsible 
-          open={openSections.classification} 
+        <Collapsible
+          open={openSections.classification}
           onOpenChange={() => toggleSection('classification')}
         >
           <CollapsibleTrigger asChild>
@@ -269,8 +282,8 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
 
       {/* Seção 4: Informações Complementares */}
       <Card className="border-purple-200">
-        <Collapsible 
-          open={openSections.complementary} 
+        <Collapsible
+          open={openSections.complementary}
           onOpenChange={() => toggleSection('complementary')}
         >
           <CollapsibleTrigger asChild>
@@ -371,8 +384,8 @@ export const InlineFormSections: React.FC<InlineFormSectionsProps> = ({
 
       {/* Seção 5: Técnicos */}
       <Card className="border-orange-200">
-        <Collapsible 
-          open={openSections.technical} 
+        <Collapsible
+          open={openSections.technical}
           onOpenChange={() => toggleSection('technical')}
         >
           <CollapsibleTrigger asChild>

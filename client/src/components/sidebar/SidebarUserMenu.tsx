@@ -7,17 +7,17 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  ChevronDown, 
+import {
+  User,
+  LogOut,
+  ChevronDown,
   ChevronUp,
   Shield,
   UserCog,
   BarChart3,
   Database,
-  Monitor
+  Monitor,
+  FolderOpen
 } from 'lucide-react';
 
 export const SidebarUserMenu: React.FC = () => {
@@ -66,12 +66,7 @@ export const SidebarUserMenu: React.FC = () => {
       icon: User,
       description: 'Visualizar perfil pessoal'
     },
-    {
-      href: '/profile-management',
-      label: 'Configurações',
-      icon: Settings,
-      description: 'Configurar conta'
-    }
+
   ];
 
   const adminMenuItems = isAdmin ? [
@@ -94,10 +89,10 @@ export const SidebarUserMenu: React.FC = () => {
       description: 'Monitorar sistema'
     },
     {
-      href: '/validacao-formulario',
-      label: 'Validações',
-      icon: BarChart3,
-      description: 'Validar dados'
+      href: '/gestao-documentos',
+      label: 'Gestão de Documentos',
+      icon: FolderOpen,
+      description: 'Gerenciar documentos do sistema'
     }
   ] : [];
 
@@ -136,7 +131,7 @@ export const SidebarUserMenu: React.FC = () => {
           {allMenuItems.map((item) => {
             const isActive = location.startsWith(item.href);
             const Icon = item.icon;
-            
+
             return (
               <Link key={item.href} href={item.href}>
                 <a
@@ -157,7 +152,7 @@ export const SidebarUserMenu: React.FC = () => {
               </Link>
             );
           })}
-          
+
           {/* Botão de logout */}
           <button
             onClick={handleLogout}

@@ -20,10 +20,10 @@ interface DocumentFormModalProps {
   selectedFileCategory?: string;
 }
 
-export default function DocumentFormModal({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
+export default function DocumentFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
   fileName = '',
   selectedFile,
   selectedFileCategory = ''
@@ -73,9 +73,9 @@ export default function DocumentFormModal({
 
   const updateField = (field: string, value: any) => {
     console.log(`📝 [DocumentFormModal] Atualizando campo ${field}:`, value);
-    setFormData(prev => ({ 
-      ...prev, 
-      [field]: value 
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
     }));
   };
 
@@ -119,14 +119,29 @@ export default function DocumentFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!mainFile) {
       alert('Por favor, selecione um arquivo para upload!');
       return;
     }
 
-    if (!formData.title || !formData.documentType || !formData.publicOrgan) {
-      alert('Por favor, preencha os campos obrigatórios: Título, Tipo do Documento e Órgão Público.');
+    // Validação completa dos campos obrigatórios
+    const requiredFields = [
+      { field: 'title', label: 'Título' },
+      { field: 'documentType', label: 'Tipo do Documento' },
+      { field: 'publicOrgan', label: 'Órgão Público' },
+      { field: 'responsible', label: 'Responsável' },
+      { field: 'mainSubject', label: 'Assunto Principal' },
+      { field: 'description', label: 'Descrição' }
+    ];
+
+    const missingFields = requiredFields.filter(({ field }) => {
+      const value = formData[field as keyof typeof formData];
+      return !value || value.toString().trim() === '';
+    });
+
+    if (missingFields.length > 0) {
+      alert(`Por favor, preencha os campos obrigatórios: ${missingFields.map(f => f.label).join(', ')}`);
       return;
     }
 
@@ -151,12 +166,12 @@ export default function DocumentFormModal({
         mainSubject: finalData.mainSubject,
         confidentialityLevel: finalData.confidentialityLevel
       });
-      
+
       // LOG COMPLETO DOS DADOS
       console.log('📦 [DocumentFormModal] DADOS COMPLETOS:', finalData);
 
       await onSubmit(finalData, mainFile, additionalImages);
-      
+
       // Reset form
       setFormData({
         title: '',
@@ -185,12 +200,34 @@ export default function DocumentFormModal({
       setMainFile(null);
       setAdditionalImages([]);
       onClose();
-      
+
     } catch (error) {
       console.error('Erro ao enviar documento:', error);
       alert('Erro ao enviar documento. Tente novamente.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const addTagsFromComma = () => {
+    if (newTag.trim()) {
+      // Separar por vírgula e limpar espaços
+      const tags = newTag
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+
+      // Adicionar apenas tags únicas que não existem
+      const uniqueTags = tags.filter(tag => !formData.tags.includes(tag));
+
+      if (uniqueTags.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          tags: [...prev.tags, ...uniqueTags]
+        }));
+      }
+
+      setNewTag('');
     }
   };
 
@@ -243,6 +280,7 @@ export default function DocumentFormModal({
                       onChange={handleFileUpload}
                       className="hidden"
                       accept="*/*"
+                      aria-label="Selecionar arquivo principal"
                     />
                     <Button
                       type="button"
@@ -324,27 +362,43 @@ export default function DocumentFormModal({
                       <Input
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
-                        placeholder="Digite uma palavra-chave"
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                        placeholder="Digite as palavras-chave separadas por vírgula"
+                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addTagsFromComma();
+                          }
+                        }}
                       />
-                      <Button type="button" onClick={addTag} variant="outline">
+                      <Button type="button" onClick={addTagsFromComma} variant="outline">
                         Adicionar
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-1">
-                      {formData.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-700">
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => removeTag(tag)}
-                            className="ml-1 text-purple-500 hover:text-purple-700"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
+
+                    {/* Exibir tags separadas */}
+                    {formData.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {formData.tags.map((tag, index) => (
+                          <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-700">
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTag(tag)}
+                              className="ml-1 text-purple-500 hover:text-purple-700"
+                              aria-label={`Remover tag ${tag}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Texto de ajuda */}
+                    <p className="text-xs text-gray-500">
+                      Digite as palavras-chave separadas por vírgula e clique em "Adicionar" ou pressione Enter
+                    </p>
                   </div>
                 </CardContent>
               </CollapsibleContent>
@@ -383,6 +437,7 @@ export default function DocumentFormModal({
                       multiple
                       accept="image/*"
                       className="hidden"
+                      aria-label="Selecionar imagens adicionais"
                     />
                     <Button
                       type="button"
@@ -495,6 +550,7 @@ export default function DocumentFormModal({
                         value={formData.language}
                         onChange={(e) => updateField('language', e.target.value)}
                         className="w-full p-2 border rounded-md"
+                        aria-label="Selecionar idioma do documento"
                       >
                         <option value="Português">Português</option>
                         <option value="Inglês">Inglês</option>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Settings, Users, FileText, LogOut } from 'lucide-react';
+import { User, Users, FileText, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface AdminSidebarProps {
@@ -12,7 +12,6 @@ interface AdminSidebarProps {
 export default function AdminSidebar({ user, onLogout, onMenuSelect, selectedMenu }: AdminSidebarProps) {
   const menuItems = [
     { id: 'profile', label: 'Meu Perfil', icon: User },
-    { id: 'settings', label: 'Configurações', icon: Settings },
     { id: 'users', label: 'Gerenciar Usuários', icon: Users },
     { id: 'content', label: 'Gerenciar Conteúdo', icon: FileText },
   ];
@@ -44,14 +43,14 @@ export default function AdminSidebar({ user, onLogout, onMenuSelect, selectedMen
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isSelected = selectedMenu === item.id;
-            
+
             return (
               <Button
                 key={item.id}
                 variant={isSelected ? "secondary" : "ghost"}
                 className={`w-full justify-start text-left p-3 rounded-lg transition-all duration-200 ${
-                  isSelected 
-                    ? 'bg-white text-blue-700 shadow-md hover:bg-white/95' 
+                  isSelected
+                    ? 'bg-white text-blue-700 shadow-md hover:bg-white/95'
                     : 'text-white hover:bg-white/10 hover:text-white'
                 }`}
                 onClick={() => onMenuSelect(item.id)}

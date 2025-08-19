@@ -9,6 +9,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Home from "@/pages/home";
 import GestaoDocumentos from "@/pages/gestao-documentos";
+import GestaoDocumentosClean from "@/pages/gestao-documentos-clean";
 import GestaoArquivos from "@/pages/gestao-arquivos";
 import DocumentDetails from "@/pages/document-details";
 import SupabaseFileManager from "@/pages/supabase-file-manager";
@@ -21,7 +22,6 @@ import MeuPerfil from "@/pages/meu-perfil";
 import GerenciarUsuarios from "@/pages/gerenciar-usuarios";
 import GerenciamentoConteudo from "@/pages/gerenciamento-conteudo";
 import Contato from "@/pages/contato";
-import ValidacaoFormulario from "@/pages/validacao-formulario";
 import ValidacaoAnotacoes from "@/pages/validacao-anotacoes";
 import StorageMonitor from "@/pages/storage-monitor";
 import FooterPageView from "@/pages/footer-page";
@@ -32,133 +32,135 @@ import TestDebugCategory from "@/pages/test-debug-category";
 
 function Router() {
   const [location] = useLocation();
-  
+
   // RODAPÉ NÃO APARECE NAS PÁGINAS DE GESTÃO
   const shouldShowFooter = !location.startsWith('/gestao-documentos') && !location.startsWith('/gestao-arquivos');
-  
+
   return (
     <>
       <Header />
-      
+
       <div className="min-h-screen">
         <Switch>
           {/* ROTAS PÚBLICAS */}
           <Route path="/" component={Home} />
-          <Route path="/documentos-publicos" component={DocumentosPublicos} />
+          <Route path="/documentos-publicos">
+            <DocumentosPublicos user={null} />
+          </Route>
           <Route path="/document/:id" component={DocumentDetails} />
           <Route path="/contato" component={Contato} />
           <Route path="/pages/:slug" component={FooterPageView} />
-          
+
           {/* ROTAS PRIVADAS - APENAS USUÁRIOS AUTENTICADOS */}
           <Route path="/gestao-documentos">
             <PrivateRoute>
               <GestaoDocumentos />
             </PrivateRoute>
           </Route>
-          
+
+          <Route path="/gestao-documentos-clean">
+            <PrivateRoute>
+              <GestaoDocumentosClean />
+            </PrivateRoute>
+          </Route>
+
           <Route path="/gestao-arquivos">
             <PrivateRoute>
               <GestaoArquivos />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/supabase-file-manager">
             <PrivateRoute>
               <SupabaseFileManager />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/user/settings">
             <PrivateRoute>
               <UserSettings />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/profile">
             <PrivateRoute>
               <Profile />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/profile-management">
             <PrivateRoute>
               <ProfileManagement />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/meu-perfil">
             <PrivateRoute>
               <MeuPerfil />
             </PrivateRoute>
           </Route>
-          
-          <Route path="/validacao-formulario">
-            <PrivateRoute>
-              <ValidacaoFormulario />
-            </PrivateRoute>
-          </Route>
-          
+
           <Route path="/validacao-anotacoes">
             <PrivateRoute>
               <ValidacaoAnotacoes />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/test-category-save">
             <PrivateRoute>
               <TestCategorySave />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/test-debug-category">
             <PrivateRoute>
               <TestDebugCategory />
             </PrivateRoute>
           </Route>
-          
+
           {/* ROTAS ADMINISTRATIVAS - APENAS ADMINISTRADORES */}
           <Route path="/admin">
             <PrivateRoute requireAdmin>
-              <AdminPage />
+              <AdminPage user={null} onLogout={() => {}} />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/admin/users">
             <PrivateRoute requireAdmin>
               <GerenciarUsuarios />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/gerenciar-usuarios">
             <PrivateRoute requireAdmin>
               <GerenciarUsuarios />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/gerenciar-conteudo">
             <PrivateRoute requireAdmin>
               <GerenciamentoConteudo />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/admin/content">
             <PrivateRoute requireAdmin>
               <GerenciamentoConteudo />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/storage-monitor">
             <PrivateRoute requireAdmin>
               <StorageMonitor />
             </PrivateRoute>
           </Route>
-          
+
           <Route path="/login-monitoring">
             <PrivateRoute requireAdmin>
               <LoginMonitoringDashboard />
             </PrivateRoute>
           </Route>
-          
+
           <Route component={NotFound} />
         </Switch>
       </div>

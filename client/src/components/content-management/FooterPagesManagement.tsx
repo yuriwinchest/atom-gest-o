@@ -12,13 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Plus, 
-  Link, 
-  ExternalLink, 
-  Edit, 
-  Trash2, 
-  Save, 
+import {
+  Plus,
+  Link,
+  ExternalLink,
+  Edit,
+  Trash2,
+  Save,
   FileText,
   Globe,
   Eye
@@ -154,7 +154,7 @@ export const FooterPagesManagement: React.FC = () => {
       'contato': { label: 'Contato', color: 'bg-green-100 text-green-700' },
       'redes-sociais': { label: 'Redes Sociais', color: 'bg-purple-100 text-purple-700' },
     };
-    
+
     const categoryConfig = categories[category] || { label: category, color: 'bg-gray-100 text-gray-700' };
     return (
       <Badge className={categoryConfig.color}>
@@ -176,7 +176,7 @@ export const FooterPagesManagement: React.FC = () => {
             Gerencie links dinâmicos do rodapé (Portal da Transparência, Ouvidoria, etc.)
           </p>
         </div>
-        
+
         <Dialog open={isNewPageModalOpen} onOpenChange={setIsNewPageModalOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800">
@@ -191,7 +191,7 @@ export const FooterPagesManagement: React.FC = () => {
                 Criar Nova Página
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               {/* Categoria */}
               <div>
@@ -200,6 +200,7 @@ export const FooterPagesManagement: React.FC = () => {
                   value={newPage.category}
                   onChange={(e) => setNewPage({ ...newPage, category: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg"
+                  aria-label="Selecionar categoria da página"
                 >
                   <option value="links-uteis">Links Úteis</option>
                   <option value="contato">Contato</option>
@@ -270,6 +271,7 @@ export const FooterPagesManagement: React.FC = () => {
                   value={newPage.icon}
                   onChange={(e) => setNewPage({ ...newPage, icon: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg"
+                  aria-label="Selecionar ícone da página"
                 >
                   <option value="FileText">Documento</option>
                   <option value="Globe">Web</option>
@@ -388,7 +390,7 @@ export const FooterPagesManagement: React.FC = () => {
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-3">
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-gray-600">
@@ -397,7 +399,7 @@ export const FooterPagesManagement: React.FC = () => {
                       {page.external_url ? page.external_url : `/pages/${page.slug}`}
                     </span>
                   </div>
-                  
+
                   {page.content && (
                     <p className="text-gray-600 line-clamp-2">
                       {page.content.substring(0, 120)}...
@@ -416,7 +418,7 @@ export const FooterPagesManagement: React.FC = () => {
                     <Eye className="h-3 w-3 mr-1" />
                     Ver
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -426,7 +428,7 @@ export const FooterPagesManagement: React.FC = () => {
                     <Edit className="h-3 w-3 mr-1" />
                     Editar
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"

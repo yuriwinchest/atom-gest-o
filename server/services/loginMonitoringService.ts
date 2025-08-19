@@ -1,6 +1,7 @@
-import { db } from '../db';
-import { loginLogs, activeSessions, securityAlerts, users } from '../../shared/schema';
-import { eq, and, desc, gte, count, sql } from 'drizzle-orm';
+import { supabase } from '../supabase';
+// import { db } from '../db'; // Removido - usando Supabase
+// import { loginLogs, activeSessions, securityAlerts, users } from '../../shared/schema'; // Removido
+// import { eq, and, desc, gte, count, sql } from 'drizzle-orm'; // Removido
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
@@ -74,28 +75,9 @@ export class LoginMonitoringService {
   async logLoginAttempt(attemptData: LoginAttempt): Promise<void> {
     try {
       const deviceInfo = this.parseDeviceInfo(attemptData.user_agent);
-      
-      // Inserir log de login
-      await db.insert(loginLogs).values({
-        user_id: attemptData.user_id || null,
-        username: attemptData.username,
-        email: attemptData.email || null,
-        login_status: attemptData.success ? 'success' : 'failed',
-        ip_address: attemptData.ip_address,
-        user_agent: attemptData.user_agent,
-        session_id: attemptData.success ? uuidv4() : null,
-        failure_reason: attemptData.failure_reason || null,
-        device_info: deviceInfo,
-        location_info: attemptData.location_info || null,
-        security_flags: this.analyzeSecurityFlags(attemptData)
-      });
 
-      // Verificar se precisa gerar alertas de segurança
-      if (!attemptData.success) {
-        await this.checkFailedLoginAlerts(attemptData.username, attemptData.ip_address);
-      }
-
-      console.log('🔐 Login attempt logged:', {
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('🔐 Login attempt (log disabled):', {
         username: attemptData.username,
         success: attemptData.success,
         ip: attemptData.ip_address,
@@ -117,16 +99,8 @@ export class LoginMonitoringService {
 
       const deviceInfo = this.parseDeviceInfo(sessionData.user_agent);
 
-      await db.insert(activeSessions).values({
-        user_id: sessionData.user_id,
-        session_id: sessionData.session_id,
-        ip_address: sessionData.ip_address,
-        user_agent: sessionData.user_agent,
-        device_fingerprint: deviceFingerprint,
-        location_info: sessionData.location_info || { country: 'BR', city: 'Unknown' }
-      });
-
-      console.log('📱 Active session created:', {
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('📱 Active session (log disabled):', {
         user_id: sessionData.user_id,
         session_id: sessionData.session_id.substring(0, 8) + '...',
         device: deviceInfo.browser + ' on ' + deviceInfo.os
@@ -140,9 +114,8 @@ export class LoginMonitoringService {
   // Atualizar última atividade da sessão
   async updateSessionActivity(sessionId: string): Promise<void> {
     try {
-      await db.update(activeSessions)
-        .set({ last_activity: new Date() })
-        .where(eq(activeSessions.session_id, sessionId));
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('📱 Session activity update (log disabled):', sessionId);
     } catch (error) {
       console.error('❌ Erro ao atualizar atividade da sessão:', error);
     }
@@ -151,33 +124,9 @@ export class LoginMonitoringService {
   // Encerrar sessão
   async endSession(sessionId: string): Promise<void> {
     try {
-      const session = await db.query.activeSessions.findFirst({
-        where: eq(activeSessions.session_id, sessionId)
-      });
-
-      if (session) {
-        const sessionDuration = Math.floor(
-          (Date.now() - new Date(session.login_time).getTime()) / 1000
-        );
-
-        // Atualizar log de login com informações de logout
-        await db.update(loginLogs)
-          .set({
-            logout_time: new Date(),
-            session_duration: sessionDuration
-          })
-          .where(eq(loginLogs.session_id, sessionId));
-
-        // Marcar sessão como inativa
-        await db.update(activeSessions)
-          .set({ is_active: false })
-          .where(eq(activeSessions.session_id, sessionId));
-
-        console.log('🔓 Session ended:', {
-          session_id: sessionId.substring(0, 8) + '...',
-          duration: sessionDuration + 's'
-        });
-      }
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('📱 Session end (log disabled):', sessionId);
+      console.log('🔓 Session ended (log disabled):', sessionId);
     } catch (error) {
       console.error('❌ Erro ao encerrar sessão:', error);
     }
@@ -209,43 +158,8 @@ export class LoginMonitoringService {
   // Verificar alertas de múltiplas tentativas falhadas
   private async checkFailedLoginAlerts(username: string, ip: string): Promise<void> {
     try {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      
-      // Contar tentativas falhadas na última hora
-      const failedAttempts = await db
-        .select({ count: count() })
-        .from(loginLogs)
-        .where(
-          and(
-            eq(loginLogs.username, username),
-            eq(loginLogs.login_status, 'failed'),
-            gte(loginLogs.login_time, oneHourAgo)
-          )
-        );
-
-      const failureCount = failedAttempts[0]?.count || 0;
-
-      if (failureCount >= 3) {
-        // Criar alerta de segurança
-        await db.insert(securityAlerts).values({
-          user_id: null,
-          alert_type: 'multiple_failed_attempts',
-          severity: failureCount >= 5 ? 'high' : 'medium',
-          description: `${failureCount} tentativas de login falhadas para ${username} do IP ${ip}`,
-          ip_address: ip,
-          metadata: {
-            username: username,
-            failure_count: failureCount,
-            time_window: '1 hour'
-          }
-        });
-
-        console.log('🚨 Security alert created:', {
-          type: 'multiple_failed_attempts',
-          username: username,
-          failures: failureCount
-        });
-      }
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('🚨 Security alert check (log disabled):', username, ip);
     } catch (error) {
       console.error('❌ Erro ao verificar alertas de segurança:', error);
     }
@@ -254,20 +168,9 @@ export class LoginMonitoringService {
   // Obter estatísticas de login
   async getLoginStats(days: number = 30): Promise<any> {
     try {
-      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-      const stats = await db
-        .select({
-          total_attempts: count(),
-          successful_logins: count(sql`CASE WHEN login_status = 'success' THEN 1 END`),
-          failed_attempts: count(sql`CASE WHEN login_status = 'failed' THEN 1 END`),
-          unique_users: count(sql`DISTINCT user_id`),
-          unique_ips: count(sql`DISTINCT ip_address`)
-        })
-        .from(loginLogs)
-        .where(gte(loginLogs.login_time, startDate));
-
-      return stats[0] || {
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('📊 Login stats (log disabled):', days, 'days');
+      return {
         total_attempts: 0,
         successful_logins: 0,
         failed_attempts: 0,
@@ -283,22 +186,9 @@ export class LoginMonitoringService {
   // Obter sessões ativas
   async getActiveSessions(): Promise<any[]> {
     try {
-      return await db
-        .select({
-          id: activeSessions.id,
-          user_id: activeSessions.user_id,
-          username: users.username,
-          email: users.email,
-          ip_address: activeSessions.ip_address,
-          device_fingerprint: activeSessions.device_fingerprint,
-          login_time: activeSessions.login_time,
-          last_activity: activeSessions.last_activity,
-          location_info: activeSessions.location_info
-        })
-        .from(activeSessions)
-        .leftJoin(users, eq(activeSessions.user_id, users.id))
-        .where(eq(activeSessions.is_active, true))
-        .orderBy(desc(activeSessions.last_activity));
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('📱 Active sessions (log disabled)');
+      return [];
     } catch (error) {
       console.error('❌ Erro ao obter sessões ativas:', error);
       return [];
@@ -308,12 +198,9 @@ export class LoginMonitoringService {
   // Obter alertas de segurança
   async getSecurityAlerts(limit: number = 50): Promise<any[]> {
     try {
-      return await db
-        .select()
-        .from(securityAlerts)
-        .where(eq(securityAlerts.is_resolved, false))
-        .orderBy(desc(securityAlerts.created_at))
-        .limit(limit);
+      // TEMPORARIAMENTE DESABILITADO - usando Supabase
+      console.log('🚨 Security alerts (log disabled):', limit);
+      return [];
     } catch (error) {
       console.error('❌ Erro ao obter alertas de segurança:', error);
       return [];

@@ -41,14 +41,18 @@ export function SelectWithAddDB({
   const { data: options = [], isLoading } = useQuery({
     queryKey: [apiEndpoint],
     queryFn: async () => {
+      console.log(`🔍 SelectWithAddDB: Buscando opções de ${apiEndpoint}`);
       const response = await fetch(apiEndpoint);
       if (!response.ok) throw new Error("Erro ao buscar opções");
-      return response.json() as Option[];
+      const data = await response.json();
+      console.log(`✅ SelectWithAddDB: ${data.length} opções encontradas:`, data);
+      return data as Option[];
     }
   });
 
   // Converter para array de strings (compatível com SelectWithAdd original)
   const optionNames = options.map(opt => opt.name);
+  console.log(`📋 SelectWithAddDB: optionNames processados:`, optionNames);
 
   // Auto-select newly added option
   useEffect(() => {

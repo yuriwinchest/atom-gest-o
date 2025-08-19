@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Search, 
-  Upload, 
-  Download, 
-  Trash2, 
-  Eye, 
-  Grid3X3, 
-  List, 
+import {
+  Search,
+  Upload,
+  Download,
+  Trash2,
+  Eye,
+  Grid3X3,
+  List,
   Folder,
   FileText,
   Image,
@@ -31,7 +31,8 @@ import { cn, formatDate } from '@/lib/utils';
 import type { Document, SystemStats } from '@shared/schema';
 import DocumentFormModal from '@/components/DocumentFormModal';
 import FileUploadModal from '@/components/FileUploadModal';
-import { supabaseStorageService } from '@/services/supabaseStorageService';
+import DocumentProgressModal from '@/components/DocumentProgressModal';
+import { hybridStorageService } from '@/services/hybridStorageService';
 import { useToast } from '@/hooks/use-toast';
 
 // Categorias disponíveis no sistema
@@ -53,6 +54,9 @@ export default function GestaoDocumentos() {
   const [isDocumentFormOpen, setIsDocumentFormOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileCategory, setSelectedFileCategory] = useState('');
+  const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [progress, setProgress] = useState(0);
 
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -65,20 +69,20 @@ export default function GestaoDocumentos() {
 
   // Filtrar documentos baseado na categoria e busca
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.description && doc.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+
     const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
   });
 
   // Contar documentos por categoria
   const categoriesWithCounts = categories.map(cat => ({
     ...cat,
-    count: cat.type === 'all' 
-      ? filteredDocuments.length 
+    count: cat.type === 'all'
+      ? filteredDocuments.length
       : filteredDocuments.filter(doc => doc.category === cat.type).length
   }));
 
@@ -96,7 +100,7 @@ export default function GestaoDocumentos() {
       const documentDetails = JSON.parse(document.content || '{}');
       const fileType = documentDetails?.fileType || documentDetails?.fileInfo?.mimeType || '';
       const fileName = documentDetails?.fileName || documentDetails?.fileInfo?.originalName || document.title;
-      
+
       if (fileType.includes('pdf') || fileName.toLowerCase().includes('.pdf')) {
         return { icon: File, color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200', type: 'PDF' };
       }
@@ -109,7 +113,7 @@ export default function GestaoDocumentos() {
       if (fileType.includes('image') || fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
         return { icon: Image, color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', type: 'IMAGE' };
       }
-      
+
       return { icon: FileText, color: 'text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', type: 'DOC' };
     } catch (error) {
       return { icon: FileText, color: 'text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', type: 'DOC' };
@@ -138,27 +142,46 @@ export default function GestaoDocumentos() {
   };
 
   // Função para submeter o formulário completo
-  const handleDocumentFormSubmit = async (formData: any) => {
-    if (!selectedFile) return;
+  const handleDocumentFormSubmit = async (formData: any, file: File, additionalImages?: File[]) => {
+    if (!file) return;
 
     try {
-      // 1. Calcular hash SHA-256 do arquivo
-      const fileHash = await calculateFileHash(selectedFile);
+      // Abrir modal de progresso
+      setIsProgressModalOpen(true);
+      setCurrentStep(1);
+      setProgress(20);
 
-      // 2. Fazer upload do arquivo para o Supabase Storage
-      const uploadedFiles = await supabaseStorageService.uploadMultipleFiles([selectedFile], {
+      // 1. Validando arquivo
+      setCurrentStep(1);
+      setProgress(20);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 2. Calculando hash SHA-256 do arquivo
+      setCurrentStep(2);
+      setProgress(40);
+      const fileHash = await calculateFileHash(file);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 3. Enviando arquivo via serviço híbrido (Backblaze + Supabase fallback)
+      setCurrentStep(3);
+      setProgress(60);
+      const uploadedFiles = await hybridStorageService.uploadMultipleFiles([file], {
         category: selectedFileCategory,
         description: formData.description,
-        tags: formData.tags || []
+        tags: formData.keywords ? formData.keywords.split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0) : []
       });
 
       if (uploadedFiles.length === 0) {
-        throw new Error('Falha no upload do arquivo');
+        throw new Error('Falha no upload do arquivo para o Backblaze');
       }
 
       const uploadedFile = uploadedFiles[0];
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 3. Criar documento com dados completos do formulário
+      // 4. Salvando no banco
+      setCurrentStep(4);
+      setProgress(80);
+
       const documentData = {
         title: formData.title,
         description: formData.description,
@@ -168,16 +191,24 @@ export default function GestaoDocumentos() {
           publicOrgan: formData.publicOrgan,
           responsible: formData.responsible,
           mainSubject: formData.mainSubject,
+          provenience: formData.provenience,
+          authorities: formData.authorities,
+          keywords: formData.keywords,
+          annotations: formData.annotations,
+          digitalizationDate: formData.digitalizationDate,
+          insertionDate: formData.insertionDate,
           digitalId: formData.digitalId || `DOC-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           verificationHash: fileHash,
-          fileName: selectedFile.name,
-          fileSize: formatFileSize(selectedFile.size),
-          fileType: selectedFile.type,
-          supabaseUrl: uploadedFile.file_path
+          fileName: file.name,
+          fileSize: formatFileSize(file.size),
+          fileType: file.type,
+          backblazeUrl: uploadedFile.url,
+          filePath: uploadedFile.file_path,
+          fileId: uploadedFile.id
         }),
         category: selectedFileCategory,
         author: formData.responsible || 'Sistema',
-        tags: formData.tags || []
+        tags: formData.keywords ? formData.keywords.split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0) : []
       };
 
       const response = await fetch('/api/documents', {
@@ -192,22 +223,36 @@ export default function GestaoDocumentos() {
         throw new Error('Erro ao criar documento');
       }
 
+      // 5. Concluído
+      setCurrentStep(5);
+      setProgress(100);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Invalidar cache para recarregar documentos
       queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
-      
+
       // Resetar estados
       setSelectedFile(null);
       setSelectedFileCategory('');
       setIsDocumentFormOpen(false);
-      
+      setIsProgressModalOpen(false);
+      setCurrentStep(1);
+      setProgress(0);
+
       toast({
         title: "Documento salvo com sucesso!",
         description: `${formData.title} foi adicionado ao sistema.`,
       });
-      
+
     } catch (error) {
       console.error('Erro ao salvar documento:', error);
+
+      // Fechar modal de progresso em caso de erro
+      setIsProgressModalOpen(false);
+      setCurrentStep(1);
+      setProgress(0);
+
       toast({
         title: "Erro ao salvar documento",
         description: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -226,7 +271,7 @@ export default function GestaoDocumentos() {
       window.document.body.appendChild(element);
       element.click();
       window.document.body.removeChild(element);
-      
+
     } catch (error) {
       console.error('Erro no download:', error);
       toast({
@@ -241,7 +286,7 @@ export default function GestaoDocumentos() {
     const confirmDelete = window.confirm(
       `Tem certeza que deseja deletar o documento "${document.title}"?\n\nEsta ação não pode ser desfeita.`
     );
-    
+
     if (!confirmDelete) {
       return;
     }
@@ -260,12 +305,12 @@ export default function GestaoDocumentos() {
 
       queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
-      
+
       toast({
         title: "Documento deletado",
         description: "O documento foi removido com sucesso.",
       });
-      
+
     } catch (error) {
       console.error('Erro ao deletar documento:', error);
       toast({
@@ -293,7 +338,7 @@ export default function GestaoDocumentos() {
             </Badge>
           </div>
           <div className="flex gap-2">
-            <Button 
+            <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => setIsUploadModalOpen(true)}
             >
@@ -334,7 +379,7 @@ export default function GestaoDocumentos() {
                   {categoriesWithCounts.map((category) => {
                     const Icon = category.icon;
                     const isSelected = selectedCategory === category.type;
-                    
+
                     return (
                       <button
                         key={category.type}
@@ -418,14 +463,14 @@ export default function GestaoDocumentos() {
                   </div>
                 ) : (
                   <div className={cn(
-                    viewMode === 'grid' 
+                    viewMode === 'grid'
                       ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
                       : 'space-y-2'
                   )}>
                     {filteredDocuments.map((document: Document) => {
                       const fileInfo = getFileIcon(document);
                       const { icon: Icon, color, bgColor, borderColor, type } = fileInfo;
-                      
+
                       return viewMode === 'grid' ? (
                         <Card key={document.id} className="group hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden bg-white">
                           <CardContent className="p-6">
@@ -445,7 +490,7 @@ export default function GestaoDocumentos() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Descrição */}
                             {document.description && (
                               <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg mb-4">
@@ -454,7 +499,7 @@ export default function GestaoDocumentos() {
                                 </p>
                               </div>
                             )}
-                            
+
                             {/* Footer do card com data e botões */}
                             <div className="flex items-center justify-between pt-5 border-t border-gray-200">
                               <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -567,6 +612,15 @@ export default function GestaoDocumentos() {
         isOpen={isDocumentFormOpen}
         onClose={() => setIsDocumentFormOpen(false)}
         onSubmit={handleDocumentFormSubmit}
+        fileName={selectedFile?.name || ''}
+      />
+
+      {/* Modal de Progresso */}
+      <DocumentProgressModal
+        isOpen={isProgressModalOpen}
+        onClose={() => setIsProgressModalOpen(false)}
+        currentStep={currentStep}
+        progress={progress}
         fileName={selectedFile?.name || ''}
       />
     </div>

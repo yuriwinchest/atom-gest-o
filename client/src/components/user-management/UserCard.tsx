@@ -7,10 +7,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  User, 
-  Shield, 
-  Mail, 
+import {
+  User,
+  Shield,
+  Mail,
   Calendar,
   Key,
   Eye,
@@ -35,21 +35,27 @@ export interface UserCardProps {
   currentUserId?: number;
   onDelete: (userId: number) => void;
   isDeleting: boolean;
+  onEditProfile?: (userId: number) => void;
+  onExpandAdmin?: (userId: number) => void;
+  isExpanded?: boolean;
 }
 
 export const UserCard: React.FC<UserCardProps> = ({
   user,
   currentUserId,
   onDelete,
-  isDeleting
+  isDeleting,
+  onEditProfile,
+  onExpandAdmin,
+  isExpanded = false
 }) => {
-  
+
   const [showPassword, setShowPassword] = useState(false);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: '2-digit', 
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -57,10 +63,12 @@ export const UserCard: React.FC<UserCardProps> = ({
   };
 
   const isCurrentUser = user.id === currentUserId;
+  const isAdminUser = user.role === 'admin';
+  const shouldShowExpanded = isExpanded && isAdminUser;
 
   const getPermissionsBadges = () => {
     const permissions = [];
-    
+
     if (user.role === 'admin') {
       permissions.push(
         <Badge key="admin" className="bg-red-100 text-red-700 border-red-200">
@@ -97,23 +105,52 @@ export const UserCard: React.FC<UserCardProps> = ({
   };
 
   return (
-    <Card className="border-blue-200 bg-blue-50">
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white -m-6 mb-6 rounded-t-lg">
+    <Card className={`border-2 ${
+      isAdminUser
+        ? 'border-purple-300 bg-gradient-to-br from-purple-50 to-blue-50'
+        : 'border-blue-200 bg-blue-50'
+    }`}>
+      <CardHeader className={`${
+        isAdminUser
+          ? 'bg-gradient-to-r from-purple-600 to-blue-700'
+          : 'bg-gradient-to-r from-blue-600 to-blue-700'
+      } text-white -m-6 mb-6 rounded-t-lg`}>
         <CardTitle className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-            {user.role === 'admin' ? (
+            {isAdminUser ? (
               <Shield className="h-4 w-4" />
             ) : (
               <User className="h-4 w-4" />
             )}
           </div>
-          Detalhes do Usuário
+          <div className="flex-1">
+            <span>Detalhes do Usuário</span>
+            {isAdminUser && (
+              <Badge className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">
+                👑 ADMIN
+              </Badge>
+            )}
+          </div>
           {isCurrentUser && (
-            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            <Badge className="bg-orange-100 text-orange-800 border-orange-200">
               Você
             </Badge>
           )}
         </CardTitle>
+
+        {/* Botão para expandir admin */}
+        {isAdminUser && onExpandAdmin && (
+          <div className="mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-white/30 text-white hover:bg-white/20"
+              onClick={() => onExpandAdmin(user.id)}
+            >
+              {isExpanded ? '🔽 Recolher Perfil' : '🔼 Expandir Perfil Admin'}
+            </Button>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -122,7 +159,7 @@ export const UserCard: React.FC<UserCardProps> = ({
           <h3 className="text-lg font-bold text-blue-900 border-b border-blue-200 pb-2">
             Informações Básicas
           </h3>
-          
+
           <div className="grid grid-cols-1 gap-3">
             <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-blue-200">
               <User className="h-5 w-5 text-blue-600" />
@@ -179,7 +216,7 @@ export const UserCard: React.FC<UserCardProps> = ({
           <h3 className="text-lg font-bold text-blue-900 border-b border-blue-200 pb-2">
             Permissões do Sistema
           </h3>
-          
+
           <div className="flex flex-wrap gap-2 mb-4">
             {getPermissionsBadges()}
           </div>
@@ -190,8 +227,8 @@ export const UserCard: React.FC<UserCardProps> = ({
                 <h4 className="font-medium text-gray-800 mb-2">{section.category}</h4>
                 <div className="flex flex-wrap gap-1">
                   {section.permissions.map((permission) => (
-                    <Badge 
-                      key={permission} 
+                    <Badge
+                      key={permission}
                       className={`text-xs ${
                         permission.includes('Sem') || permission.includes('sem')
                           ? 'bg-gray-100 text-gray-600'
@@ -207,12 +244,102 @@ export const UserCard: React.FC<UserCardProps> = ({
           </div>
         </div>
 
+        {/* Seção Expandida do Admin */}
+        {shouldShowExpanded && (
+          <div className="space-y-4 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white rounded-lg p-4">
+            <h3 className="text-lg font-bold text-purple-900 border-b border-purple-200 pb-2 flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              👑 Configurações do Perfil Admin
+            </h3>
+
+            {/* Configurações de Perfil */}
+            <div className="space-y-3">
+              <div className="bg-white rounded-lg border border-purple-200 p-3">
+                <h4 className="font-medium text-purple-800 mb-2">📝 Editar Perfil</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Nome completo"
+                      defaultValue={user.name}
+                      className="flex-1 px-3 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      defaultValue={user.email}
+                      className="flex-1 px-3 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                    onClick={() => onEditProfile?.(user.id)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </div>
+
+              {/* Configurações de Segurança */}
+              <div className="bg-white rounded-lg border border-purple-200 p-3">
+                <h4 className="font-medium text-purple-800 mb-2">🔒 Segurança</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="Nova senha"
+                      className="flex-1 px-3 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="Confirmar nova senha"
+                      className="flex-1 px-3 py-2 border border-purple-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Alterar Senha
+                  </Button>
+                </div>
+              </div>
+
+              {/* Preferências */}
+              <div className="bg-white rounded-lg border border-purple-200 p-3">
+                <h4 className="font-medium text-purple-800 mb-2">⚙️ Preferências</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-600 cursor-pointer">Tema escuro</label>
+                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-600 cursor-pointer">Notificações por email</label>
+                    <input type="checkbox" className="w-4 h-4 text-purple-600" defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-600 cursor-pointer">Autenticação de dois fatores</label>
+                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Ações */}
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-blue-900 border-b border-blue-200 pb-2">
             Ações
           </h3>
-          
+
           <div className="grid grid-cols-1 gap-3">
             <Button
               variant="outline"

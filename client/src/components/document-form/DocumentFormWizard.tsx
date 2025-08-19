@@ -1,6 +1,6 @@
 /**
  * DocumentFormWizard - Seguindo SRP
- * Responsabilidade única: Formulário de metadados com seções organizadas
+ * Responsabilidade única: Formulário de metadados com campos exatos das fotos
  */
 
 import React, { useState } from 'react';
@@ -8,9 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SelectWithAddDB } from '../SelectWithAddDB';
-import { ChevronDown, ChevronUp, Hash, Shield } from 'lucide-react';
+import { Calendar, Hash, Upload } from 'lucide-react';
 
 export interface DocumentFormWizardProps {
   formData: any;
@@ -23,24 +22,6 @@ export const DocumentFormWizard: React.FC<DocumentFormWizardProps> = ({
   onFormDataChange,
   isLoading
 }) => {
-
-  const [openSections, setOpenSections] = useState({
-    identification: true,
-    origin: true,
-    classification: true,
-    complementary: false,
-    technical: false
-  });
-
-  const [newTag, setNewTag] = useState('');
-
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section as keyof typeof prev]
-    }));
-  };
-
   const updateField = (field: string, value: any) => {
     onFormDataChange({
       ...formData,
@@ -48,446 +29,277 @@ export const DocumentFormWizard: React.FC<DocumentFormWizardProps> = ({
     });
   };
 
-  const addTag = () => {
-    if (newTag.trim()) {
-      // Dividir o texto por vírgulas e processar cada palavra
-      const newTags = newTag
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0)
-        .filter(tag => !formData.tags?.includes(tag)); // Evitar duplicatas
-      
-      if (newTags.length > 0) {
-        updateField('tags', [...(formData.tags || []), ...newTags]);
-        setNewTag('');
-      }
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    updateField('tags', formData.tags?.filter((tag: string) => tag !== tagToRemove) || []);
-  };
-
   const requiredFields = ['title', 'documentType', 'publicOrgan', 'responsible', 'mainSubject', 'description'];
   const isFieldRequired = (field: string) => requiredFields.includes(field);
 
   return (
     <div className="space-y-6">
-      {/* Seção 1: Identificação do Documento */}
+      {/* Seção 1: Informações do Documento */}
       <Card className="border-blue-200">
-        <Collapsible 
-          open={openSections.identification} 
-          onOpenChange={() => toggleSection('identification')}
-        >
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-blue-50 transition-colors">
-              <CardTitle className="flex items-center justify-between text-blue-800">
-                <span className="flex items-center gap-2">
-                  📋 Identificação do Documento
-                </span>
-                {openSections.identification ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Título {isFieldRequired('title') && <span className="text-red-500">*</span>}
-                  </label>
-                  <Input
-                    value={formData.title || ''}
-                    onChange={(e) => updateField('title', e.target.value)}
-                    placeholder="Digite o título do documento"
-                    disabled={isLoading}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Tipo de Documento {isFieldRequired('documentType') && <span className="text-red-500">*</span>}
-                  </label>
-                  <SelectWithAddDB
-                    value={formData.documentType || ''}
-                    onValueChange={(value) => updateField('documentType', value)}
-                    placeholder="Selecione o tipo"
-                    apiEndpoint="/api/document-types"
-                    disabled={isLoading}
-                  />
-                </div>
+        <CardHeader className="bg-blue-50">
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            📄 Informações do Documento
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Proveniência
+              </label>
+              <Input
+                value={formData.provenience || ''}
+                onChange={(e) => updateField('provenience', e.target.value)}
+                placeholder="Ex: Assembleia Legislativa, Gabinete..."
+                disabled={isLoading}
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Código de Referência
-                  </label>
-                  <Input
-                    value={formData.referenceCode || ''}
-                    onChange={(e) => updateField('referenceCode', e.target.value)}
-                    placeholder="Ex: DOC-2024-001"
-                    disabled={isLoading}
-                  />
-                </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Tipo de Documento {isFieldRequired('documentType') && <span className="text-red-500">*</span>}
+              </label>
+              <SelectWithAddDB
+                value={formData.documentType || ''}
+                onValueChange={(value) => updateField('documentType', value)}
+                placeholder="Selecione o tipo de documento"
+                apiEndpoint="/api/document-types"
+                label="Tipo de Documento"
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Identificação Digital
-                    <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">Automático</Badge>
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Hash className="h-4 w-4 text-blue-600" />
-                    <Input
-                      value={formData.digitalId || ''}
-                      disabled
-                      className="bg-gray-50 font-mono text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">
+                Título {isFieldRequired('title') && <span className="text-red-500">*</span>}
+              </label>
+              <Input
+                value={formData.title || ''}
+                onChange={(e) => updateField('title', e.target.value)}
+                placeholder="Digite o título completo do documento"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Órgão Público {isFieldRequired('publicOrgan') && <span className="text-red-500">*</span>}
+              </label>
+              <SelectWithAddDB
+                value={formData.publicOrgan || ''}
+                onValueChange={(value) => updateField('publicOrgan', value)}
+                placeholder="Selecione o órgão público"
+                apiEndpoint="/api/public-organs"
+                label="Órgão Público"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Assunto Principal {isFieldRequired('mainSubject') && <span className="text-red-500">*</span>}
+              </label>
+              <SelectWithAddDB
+                value={formData.mainSubject || ''}
+                onValueChange={(value) => updateField('mainSubject', value)}
+                placeholder="Selecione o assunto principal"
+                apiEndpoint="/api/main-subjects"
+                label="Assunto Principal"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Responsável {isFieldRequired('responsible') && <span className="text-red-500">*</span>}
+              </label>
+              <Input
+                value={formData.responsible || ''}
+                onChange={(e) => updateField('responsible', e.target.value)}
+                placeholder="Nome do responsável pelo documento"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">
+                Descrição {isFieldRequired('description') && <span className="text-red-500">*</span>}
+              </label>
+              <Textarea
+                value={formData.description || ''}
+                onChange={(e) => updateField('description', e.target.value)}
+                placeholder="Descreva o conteúdo e contexto do documento"
+                rows={4}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Nome do(s) Parlamentares e/ou principais autoridades nominadas
+              </label>
+              <Input
+                value={formData.authorities || ''}
+                onChange={(e) => updateField('authorities', e.target.value)}
+                placeholder="Ex: Deputado João Silva, Senador Maria Santos..."
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
-      {/* Seção 2: Origem e Responsabilidade */}
+      {/* Seção 2: Informações Técnicas */}
       <Card className="border-green-200">
-        <Collapsible 
-          open={openSections.origin} 
-          onOpenChange={() => toggleSection('origin')}
-        >
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-green-50 transition-colors">
-              <CardTitle className="flex items-center justify-between text-green-800">
-                <span className="flex items-center gap-2">
-                  🏛️ Origem e Responsabilidade
-                </span>
-                {openSections.origin ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Órgão Público {isFieldRequired('publicOrgan') && <span className="text-red-500">*</span>}
-                  </label>
-                  <SelectWithAddDB
-                    value={formData.publicOrgan || ''}
-                    onValueChange={(value) => updateField('publicOrgan', value)}
-                    placeholder="Selecione o órgão"
-                    apiEndpoint="/api/public-organs"
-                    disabled={isLoading}
-                  />
-                </div>
+        <CardHeader className="bg-green-50">
+          <CardTitle className="flex items-center justify-between text-green-800">
+            <span className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Informações Técnicas
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Data da digitalização</label>
+              <Input
+                type="date"
+                value={formData.digitalizationDate || ''}
+                onChange={(e) => updateField('digitalizationDate', e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Setor Responsável</label>
-                  <SelectWithAddDB
-                    value={formData.responsibleSector || ''}
-                    onValueChange={(value) => updateField('responsibleSector', value)}
-                    placeholder="Selecione o setor"
-                    apiEndpoint="/api/responsible-sectors"
-                    disabled={isLoading}
-                  />
-                </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Data de inserção no ATOM
+                <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">Automático</Badge>
+              </label>
+              <Input
+                value={formData.insertionDate || '04/08/2025'}
+                disabled
+                className="bg-gray-50"
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Responsável {isFieldRequired('responsible') && <span className="text-red-500">*</span>}
-                  </label>
-                  <Input
-                    value={formData.responsible || ''}
-                    onChange={(e) => updateField('responsible', e.target.value)}
-                    placeholder="Nome do responsável"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Período</label>
-                  <Input
-                    value={formData.period || ''}
-                    onChange={(e) => updateField('period', e.target.value)}
-                    placeholder="Ex: 2024, Janeiro/2024"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
-
-      {/* Seção 3: Conteúdo e Classificação */}
-      <Card className="border-yellow-200">
-        <Collapsible 
-          open={openSections.classification} 
-          onOpenChange={() => toggleSection('classification')}
-        >
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-yellow-50 transition-colors">
-              <CardTitle className="flex items-center justify-between text-yellow-800">
-                <span className="flex items-center gap-2">
-                  📊 Conteúdo e Classificação
-                </span>
-                {openSections.classification ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Assunto Principal {isFieldRequired('mainSubject') && <span className="text-red-500">*</span>}
-                </label>
-                <SelectWithAddDB
-                  value={formData.mainSubject || ''}
-                  onValueChange={(value) => updateField('mainSubject', value)}
-                  placeholder="Selecione o assunto"
-                  apiEndpoint="/api/main-subjects"
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    <Shield className="inline h-4 w-4 mr-1" />
-                    Nível de Confidencialidade
-                  </label>
-                  <SelectWithAddDB
-                    value={formData.confidentialityLevel || ''}
-                    onValueChange={(value) => updateField('confidentialityLevel', value)}
-                    placeholder="Selecione o nível"
-                    apiEndpoint="/api/confidentiality-levels"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Base Legal</label>
-                  <Input
-                    value={formData.legalBase || ''}
-                    onChange={(e) => updateField('legalBase', e.target.value)}
-                    placeholder="Lei, decreto, portaria..."
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Processo Relacionado</label>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Identificador digital
+                <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">Automático</Badge>
+              </label>
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4 text-blue-600" />
                 <Input
-                  value={formData.relatedProcess || ''}
-                  onChange={(e) => updateField('relatedProcess', e.target.value)}
-                  placeholder="Número do processo"
-                  disabled={isLoading}
+                  value="Será gerado automaticamente"
+                  disabled
+                  className="bg-gray-50 font-mono text-sm"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Descrição {isFieldRequired('description') && <span className="text-red-500">*</span>}
-                </label>
-                <Textarea
-                  value={formData.description || ''}
-                  onChange={(e) => updateField('description', e.target.value)}
-                  placeholder="Descreva o conteúdo do documento..."
-                  rows={4}
-                  disabled={isLoading}
-                />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Hash (checksum) da imagem
+                <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">Automático</Badge>
+              </label>
+              <Input
+                value="Será calculado automaticamente"
+                disabled
+                className="bg-gray-50 font-mono text-sm"
+              />
+            </div>
+          </div>
 
-      {/* Seção 4: Informações Complementares */}
-      <Card className="border-purple-200">
-        <Collapsible 
-          open={openSections.complementary} 
-          onOpenChange={() => toggleSection('complementary')}
-        >
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-purple-50 transition-colors">
-              <CardTitle className="flex items-center justify-between text-purple-800">
-                <span className="flex items-center gap-2">
-                  📚 Informações Complementares
-                </span>
-                {openSections.complementary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Disponibilidade</label>
-                  <SelectWithAddDB
-                    value={formData.availability || ''}
-                    onValueChange={(value) => updateField('availability', value)}
-                    placeholder="Selecione"
-                    apiEndpoint="/api/availability-options"
-                    disabled={isLoading}
-                  />
-                </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Palavras-chave</label>
+            <div className="flex gap-2 mb-2">
+              <Input
+                value={formData.keywords || ''}
+                onChange={(e) => updateField('keywords', e.target.value)}
+                placeholder="Digite palavras-chave separadas por vírgula (ex: administração, legislação, política)"
+                className="flex-1"
+                disabled={isLoading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (formData.keywords?.trim()) {
+                      const keywords = formData.keywords
+                        .split(',')
+                        .map(k => k.trim())
+                        .filter(k => k.length > 0);
+                      updateField('keywords', keywords.join(', '));
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (formData.keywords?.trim()) {
+                    const keywords = formData.keywords
+                      .split(',')
+                      .map(k => k.trim())
+                      .filter(k => k.length > 0);
+                    updateField('keywords', keywords.join(', '));
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                disabled={isLoading}
+              >
+                Adicionar
+              </button>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Idioma</label>
-                  <SelectWithAddDB
-                    value={formData.language || ''}
-                    onValueChange={(value) => updateField('language', value)}
-                    placeholder="Selecione"
-                    apiEndpoint="/api/language-options"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Direitos</label>
-                  <SelectWithAddDB
-                    value={formData.rights || ''}
-                    onValueChange={(value) => updateField('rights', value)}
-                    placeholder="Selecione"
-                    apiEndpoint="/api/rights-options"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Palavras-chave</label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      placeholder="Digite palavras-chave separadas por vírgula..."
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addTag();
-                        }
-                      }}
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={addTag}
-                      disabled={isLoading || !newTag.trim()}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.tags?.map((tag: string, index: number) => (
-                      <Badge 
-                        key={index} 
-                        className="bg-purple-100 text-purple-800 border-purple-200"
+            {/* Exibir tags separadas */}
+            {formData.keywords && formData.keywords.includes(',') && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.keywords
+                  .split(',')
+                  .map((keyword, index) => keyword.trim())
+                  .filter(keyword => keyword.length > 0)
+                  .map((keyword, index) => (
+                    <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-700">
+                      {keyword}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const keywords = formData.keywords
+                            .split(',')
+                            .map(k => k.trim())
+                            .filter(k => k.length > 0 && k !== keyword);
+                          updateField('keywords', keywords.join(', '));
+                        }}
+                        className="ml-1 text-blue-600 hover:text-blue-800 font-bold"
+                        title="Remover palavra-chave"
                       >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-2 hover:text-purple-600"
-                          disabled={isLoading}
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
               </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
+            )}
 
-      {/* Seção 5: Digitalização e Metadados Técnicos */}
-      <Card className="border-orange-200">
-        <Collapsible 
-          open={openSections.technical} 
-          onOpenChange={() => toggleSection('technical')}
-        >
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-orange-50 transition-colors">
-              <CardTitle className="flex items-center justify-between text-orange-800">
-                <span className="flex items-center gap-2">
-                  🔧 Digitalização e Metadados Técnicos
-                </span>
-                {openSections.technical ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Data de Digitalização</label>
-                  <Input
-                    type="date"
-                    value={formData.digitalizationDate || ''}
-                    onChange={(e) => updateField('digitalizationDate', e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Digite as palavras-chave e clique em "Adicionar" ou pressione Enter para separá-las
+            </p>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Local de Digitalização</label>
-                  <Input
-                    value={formData.digitalizationLocation || ''}
-                    onChange={(e) => updateField('digitalizationLocation', e.target.value)}
-                    placeholder="Ex: Arquivo Central"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Responsável pela Digitalização</label>
-                  <Input
-                    value={formData.digitalizationResponsible || ''}
-                    onChange={(e) => updateField('digitalizationResponsible', e.target.value)}
-                    placeholder="Nome do responsável"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Autoridade do Documento</label>
-                  <SelectWithAddDB
-                    value={formData.documentAuthority || ''}
-                    onValueChange={(value) => updateField('documentAuthority', value)}
-                    placeholder="Selecione"
-                    apiEndpoint="/api/document-authorities"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Hash de Verificação
-                    <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">Automático</Badge>
-                  </label>
-                  <Input
-                    value={formData.verificationHash || 'Será gerado automaticamente'}
-                    disabled
-                    className="bg-gray-50 text-xs font-mono"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
+          <div>
+            <label className="block text-sm font-medium mb-2">Anotações</label>
+            <Textarea
+              value={formData.annotations || ''}
+              onChange={(e) => updateField('annotations', e.target.value)}
+              placeholder="Digite suas anotações..."
+              rows={4}
+              disabled={isLoading}
+            />
+          </div>
+        </CardContent>
       </Card>
 
       {/* Validação em tempo real */}
       <Card className="border-gray-200 bg-gray-50">
         <CardContent className="p-4">
           <h4 className="font-medium text-gray-700 mb-2">Campos obrigatórios:</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
             {requiredFields.map(field => {
               const fieldValue = formData[field];
               const isCompleted = fieldValue && fieldValue.length > 0;
@@ -499,7 +311,7 @@ export const DocumentFormWizard: React.FC<DocumentFormWizardProps> = ({
                 mainSubject: 'Assunto Principal',
                 description: 'Descrição'
               };
-              
+
               return (
                 <div key={field} className={`flex items-center gap-2 ${isCompleted ? 'text-green-600' : 'text-red-600'}`}>
                   <div className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-red-500'}`} />

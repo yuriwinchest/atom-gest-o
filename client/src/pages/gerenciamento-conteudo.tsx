@@ -6,11 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Settings, 
-  Eye, 
-  Edit, 
-  Trash2, 
+import {
+  Settings,
+  Eye,
+  Edit,
+  Trash2,
   Plus,
   FileText,
   Phone,
@@ -201,7 +201,7 @@ function FooterPagesManagement() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (editingPage) {
       updatePageMutation.mutate({ ...pageForm, id: editingPage.id });
     } else {
@@ -225,7 +225,7 @@ function FooterPagesManagement() {
       {/* Botão para criar nova página */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Páginas Existentes</h3>
-        <Button 
+        <Button
           onClick={() => setIsCreating(true)}
           className="bg-blue-600 hover:bg-blue-700"
         >
@@ -308,6 +308,7 @@ function FooterPagesManagement() {
                     value={pageForm.category}
                     onChange={(e) => setPageForm(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full h-10 px-3 border border-gray-300 rounded-md"
+                    aria-label="Selecionar categoria da página"
                   >
                     <option value="links-uteis">Links Úteis</option>
                     <option value="contato">Contato</option>
@@ -353,13 +354,14 @@ function FooterPagesManagement() {
                   checked={pageForm.is_active}
                   onChange={(e) => setPageForm(prev => ({ ...prev, is_active: e.target.checked }))}
                   className="h-4 w-4"
+                  aria-label="Marcar página como ativa"
                 />
                 <Label htmlFor="is_active">Página ativa</Label>
               </div>
 
               <div className="flex gap-2">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={createPageMutation.isPending || updatePageMutation.isPending}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
@@ -387,7 +389,7 @@ function FooterPagesManagement() {
                   </CardTitle>
                   <div className="flex gap-2">
                     <Badge variant="secondary">
-                      {page.category === 'links-uteis' ? 'Links Úteis' : 
+                      {page.category === 'links-uteis' ? 'Links Úteis' :
                        page.category === 'contato' ? 'Contato' :
                        page.category === 'redes-sociais' ? 'Redes Sociais' : 'Outros'}
                     </Badge>
@@ -442,7 +444,7 @@ function FooterPagesManagement() {
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 mb-4">Nenhuma página criada ainda.</p>
-          <Button 
+          <Button
             onClick={() => setIsCreating(true)}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -510,7 +512,7 @@ export default function GerenciamentoConteudo() {
   // Função para fazer upload de imagem para o Supabase
   const uploadImageToSupabase = async (file: File): Promise<string> => {
     console.log('🚀 Iniciando upload de imagem:', file.name, file.type, file.size);
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('bucket', 'images');
@@ -530,7 +532,7 @@ export default function GerenciamentoConteudo() {
 
     const result = await response.json();
     console.log('✅ Upload bem-sucedido:', result);
-    
+
     // Retornar a URL pública do Supabase
     return result.url;
   };
@@ -610,7 +612,7 @@ export default function GerenciamentoConteudo() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!cardForm.title || !cardForm.description) {
       toast({
         title: "Erro",
@@ -628,7 +630,7 @@ export default function GerenciamentoConteudo() {
         setIsUploadingImage(true);
         const imageUrl = await uploadImageToSupabase(selectedImageFile);
         finalData.image_url = imageUrl;
-        
+
         toast({
           title: "Sucesso",
           description: "Imagem enviada com sucesso!",
@@ -713,7 +715,7 @@ export default function GerenciamentoConteudo() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -747,22 +749,22 @@ export default function GerenciamentoConteudo() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200">
-            <TabsTrigger 
-              value="cartoes" 
+            <TabsTrigger
+              value="cartoes"
               className="flex items-center gap-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600"
             >
               <FileText className="h-4 w-4" />
               Cartões Iniciais
             </TabsTrigger>
-            <TabsTrigger 
-              value="rodape" 
+            <TabsTrigger
+              value="rodape"
               className="flex items-center gap-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600"
             >
               <Globe className="h-4 w-4" />
               Rodapé
             </TabsTrigger>
-            <TabsTrigger 
-              value="contato" 
+            <TabsTrigger
+              value="contato"
               className="flex items-center gap-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600"
             >
               <Phone className="h-4 w-4" />
@@ -775,7 +777,7 @@ export default function GerenciamentoConteudo() {
             <div className="text-center py-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Cartões da Página Inicial</h2>
               <p className="text-gray-600 mb-6">Gerencie os cards de destaque da página inicial.</p>
-              
+
               {/* Botão para criar novo card */}
               {!isCreating && !editingCard && (
                 <Button onClick={startCreating} className="mb-6">
@@ -807,7 +809,7 @@ export default function GerenciamentoConteudo() {
                           required
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="section">Seção</Label>
                         <select
@@ -815,6 +817,7 @@ export default function GerenciamentoConteudo() {
                           value={cardForm.section}
                           onChange={(e) => setCardForm(prev => ({ ...prev, section: e.target.value }))}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          aria-label="Selecionar seção do card"
                         >
                           <option value="news">Notícias</option>
                           <option value="features">Recursos</option>
@@ -851,7 +854,7 @@ export default function GerenciamentoConteudo() {
                         <ImageIcon className="h-5 w-5 text-gray-600" />
                         <Label className="text-lg font-medium">Imagem do Card (opcional)</Label>
                       </div>
-                      
+
                       {/* Escolha do método */}
                       <div className="flex gap-4">
                         <Button
@@ -908,7 +911,7 @@ export default function GerenciamentoConteudo() {
                                     });
                                     return;
                                   }
-                                  
+
                                   // Validar tamanho (máximo 5MB)
                                   if (file.size > 5 * 1024 * 1024) {
                                     toast({
@@ -918,7 +921,7 @@ export default function GerenciamentoConteudo() {
                                     });
                                     return;
                                   }
-                                  
+
                                   setSelectedImageFile(file);
                                   setCardForm(prev => ({ ...prev, image_url: '' })); // Limpar URL se houver
                                 }
@@ -950,24 +953,24 @@ export default function GerenciamentoConteudo() {
                       )}
 
                       {/* Preview da imagem */}
-                      {((imageUploadMethod === 'url' && cardForm.image_url) || 
+                      {((imageUploadMethod === 'url' && cardForm.image_url) ||
                         (imageUploadMethod === 'file' && selectedImageFile)) && (
                         <div className="space-y-2">
                           <Label>Preview</Label>
                           <div className="border border-gray-200 rounded-lg p-2">
                             {imageUploadMethod === 'url' && cardForm.image_url ? (
-                              <img 
-                                src={cardForm.image_url} 
-                                alt="Preview" 
+                              <img
+                                src={cardForm.image_url}
+                                alt="Preview"
                                 className="w-full h-32 object-cover rounded"
                                 onError={(e) => {
                                   e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y3ZjdmNyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5OSI+SW1hZ2VtIG7Do28gZW5jb250cmFkYTwvdGV4dD4KICA8L3N2Zz4K';
                                 }}
                               />
                             ) : selectedImageFile ? (
-                              <img 
-                                src={URL.createObjectURL(selectedImageFile)} 
-                                alt="Preview" 
+                              <img
+                                src={URL.createObjectURL(selectedImageFile)}
+                                alt="Preview"
                                 className="w-full h-32 object-cover rounded"
                               />
                             ) : null}
@@ -983,13 +986,14 @@ export default function GerenciamentoConteudo() {
                         checked={cardForm.featured}
                         onChange={(e) => setCardForm(prev => ({ ...prev, featured: e.target.checked }))}
                         className="h-4 w-4"
+                          aria-label="Marcar card como destaque"
                       />
                       <Label htmlFor="featured">Card em destaque</Label>
                     </div>
 
                     <div className="flex gap-2">
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={createCardMutation.isPending || updateCardMutation.isPending || isUploadingImage}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
@@ -1038,8 +1042,8 @@ export default function GerenciamentoConteudo() {
                     {/* Preview da imagem do card */}
                     {card.image_url ? (
                       <div className="mb-4">
-                        <img 
-                          src={card.image_url} 
+                        <img
+                          src={card.image_url}
                           alt={card.title}
                           className="w-full h-32 object-cover rounded-lg border border-gray-200"
                           onError={(e) => {
@@ -1107,7 +1111,7 @@ export default function GerenciamentoConteudo() {
           {/* Aba Contato */}
           <TabsContent value="contato" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
+
               {/* Seção: Informações de Contato */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
@@ -1131,7 +1135,7 @@ export default function GerenciamentoConteudo() {
                         <p><strong>Endereço:</strong> Rua da Administração, 123 - Centro - São Paulo/SP</p>
                       </div>
                     </div>
-                    
+
                     <div className="text-sm text-gray-600">
                       <p><strong>Como editar:</strong> As informações de contato são editadas diretamente no arquivo Footer.tsx ou podem ser transformadas em páginas dinâmicas criando entradas na categoria "contato" na aba Rodapé.</p>
                     </div>
@@ -1180,7 +1184,7 @@ export default function GerenciamentoConteudo() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
                       <h4 className="font-semibold text-amber-900 mb-2">💡 Como editar redes sociais:</h4>
                       <div className="text-sm text-amber-800 space-y-2">
@@ -1212,7 +1216,7 @@ export default function GerenciamentoConteudo() {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
+
                   <div className="space-y-4">
                     <h4 className="font-semibold text-gray-900">📞 Para editar informações de contato:</h4>
                     <div className="text-sm text-gray-700 space-y-2">

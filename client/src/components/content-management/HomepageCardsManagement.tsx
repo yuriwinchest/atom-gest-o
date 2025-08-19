@@ -1,5 +1,5 @@
 /**
- * HomepageCardsManagement - Seguindo SRP
+ * HomepageCardsManagement - Formulário COMPLETO com 12 campos
  * Responsabilidade única: Gerenciamento de cards da página inicial
  */
 
@@ -10,20 +10,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Plus, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Save, 
+import {
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  Save,
   FileText,
   Home,
   Calendar,
   User,
   Tag,
-  Globe
+  Globe,
+  Settings,
+  Sparkles,
+  ImageIcon,
+  Link,
+  Upload,
+  X,
+  Phone
 } from 'lucide-react';
 
 interface HomepageContent {
@@ -56,8 +63,12 @@ export const HomepageCardsManagement: React.FC = () => {
     author: 'Equipe Técnica',
     date: new Date().toLocaleDateString('pt-BR'),
     order_index: 0,
-    is_active: true
+    is_active: true,
+    image_url: ''
   });
+
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
 
   // Query para conteúdo da homepage
   const { data: content = [], isLoading } = useQuery<HomepageContent[]>({
@@ -96,6 +107,41 @@ export const HomepageCardsManagement: React.FC = () => {
       });
     },
   });
+
+  // Função para upload de imagem
+  const uploadImageToSupabase = async (file: File): Promise<string> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'images');
+
+      const response = await fetch('/api/supabase-storage/upload-file', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erro no upload: ${JSON.stringify(errorData)}`);
+      }
+
+      const result = await response.json();
+      return result.url;
+    } catch (error) {
+      console.error('Erro no upload:', error);
+      throw error;
+    }
+  };
+
+  // Função para lidar com seleção de imagem
+  const handleImageSelect = (file: File) => {
+    setSelectedImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Mutation para deletar conteúdo
   const deleteContentMutation = useMutation({
@@ -139,7 +185,7 @@ export const HomepageCardsManagement: React.FC = () => {
     });
   };
 
-  const handleCreateCard = () => {
+  const handleCreateCard = async () => {
     if (!newCard.title.trim() || !newCard.description.trim()) {
       toast({
         title: "Campos obrigatórios",
@@ -148,7 +194,27 @@ export const HomepageCardsManagement: React.FC = () => {
       });
       return;
     }
-    createContentMutation.mutate(newCard);
+
+    try {
+      let imageUrl = '';
+      
+      // Upload da imagem se selecionada
+      if (selectedImageFile) {
+        imageUrl = await uploadImageToSupabase(selectedImageFile);
+      }
+
+      // Criar o conteúdo com a URL da imagem
+      createContentMutation.mutate({
+        ...newCard,
+        image_url: imageUrl
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no upload",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteCard = (id: number) => {
@@ -163,7 +229,7 @@ export const HomepageCardsManagement: React.FC = () => {
       features: { label: 'Recursos', color: 'bg-green-100 text-green-700' },
       updates: { label: 'Atualizações', color: 'bg-purple-100 text-purple-700' },
     };
-    
+
     const sectionConfig = sections[section] || { label: section, color: 'bg-gray-100 text-gray-700' };
     return (
       <Badge className={sectionConfig.color}>
@@ -185,7 +251,7 @@ export const HomepageCardsManagement: React.FC = () => {
             Gerencie cards, notícias e recursos exibidos na página inicial
           </p>
         </div>
-        
+
         <Dialog open={isNewCardModalOpen} onOpenChange={setIsNewCardModalOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">
@@ -200,7 +266,7 @@ export const HomepageCardsManagement: React.FC = () => {
                 Criar Novo Card
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               {/* Seção */}
               <div>
@@ -209,6 +275,7 @@ export const HomepageCardsManagement: React.FC = () => {
                   value={newCard.section}
                   onChange={(e) => setNewCard({ ...newCard, section: e.target.value })}
                   className="w-full p-2 border border-gray-300 rounded-lg"
+                  aria-label="Selecionar seção do card"
                 >
                   <option value="news">Notícias</option>
                   <option value="features">Recursos</option>
@@ -362,12 +429,12 @@ export const HomepageCardsManagement: React.FC = () => {
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-3">
                 <p className="text-sm text-gray-600 line-clamp-3">
                   {card.description}
                 </p>
-                
+
                 {/* Metadados */}
                 <div className="space-y-1 text-xs text-gray-500">
                   {card.author && (
@@ -401,7 +468,7 @@ export const HomepageCardsManagement: React.FC = () => {
                     <Eye className="h-3 w-3 mr-1" />
                     Ver
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -411,7 +478,7 @@ export const HomepageCardsManagement: React.FC = () => {
                     <Edit className="h-3 w-3 mr-1" />
                     Editar
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"

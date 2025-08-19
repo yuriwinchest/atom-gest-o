@@ -6,12 +6,11 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
-import { 
-  Home, 
-  FileText, 
-  Settings, 
-  Users, 
-  BarChart3, 
+import {
+  Home,
+  FileText,
+  Users,
+  BarChart3,
   Shield,
   FolderOpen,
   Database,
@@ -37,8 +36,8 @@ const navigationItems: NavigationItem[] = [
   {
     href: '/gestao-documentos',
     label: 'Gestão de Documentos',
-    icon: FileText,
-    description: 'Gerenciar documentos'
+    icon: FolderOpen,
+    description: 'Gerenciar documentos do sistema'
   },
   {
     href: '/documentos-publicos',
@@ -76,18 +75,7 @@ const navigationItems: NavigationItem[] = [
     icon: Layers,
     description: 'Gerenciar conteúdo do site'
   },
-  {
-    href: '/validacao-formulario',
-    label: 'Validação',
-    icon: BarChart3,
-    description: 'Validar formulários'
-  },
-  {
-    href: '/profile-management',
-    label: 'Configurações',
-    icon: Settings,
-    description: 'Configurações do perfil'
-  }
+
 ];
 
 export const SidebarNavigation: React.FC = () => {
@@ -105,11 +93,11 @@ export const SidebarNavigation: React.FC = () => {
       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
         Navegação
       </h3>
-      
+
       {navigationItems.map((item) => {
         const isActive = isActivePath(item.href);
         const Icon = item.icon;
-        
+
         return (
           <Link key={item.href} href={item.href}>
             <a
@@ -125,7 +113,7 @@ export const SidebarNavigation: React.FC = () => {
                 "h-4 w-4 flex-shrink-0",
                 isActive ? "text-blue-700" : "text-gray-500"
               )} />
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="truncate">{item.label}</span>

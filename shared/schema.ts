@@ -19,6 +19,13 @@ export const documents = pgTable("documents", {
   category: text("category"),
   author: text("author"),
   user_id: integer("user_id"), // ID do usuário que criou o documento
+  // Novos campos adicionados
+  provenience: text("provenience"),
+  subject: text("subject"),
+  digitalization_date: text("digitalization_date"),
+  insertion_date: text("insertion_date"),
+  digital_id: text("digital_id"),
+  verification_hash: text("verification_hash"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -479,7 +486,7 @@ export const insertDocumentTypeSchema = createInsertSchema(documentTypes).omit({
   created_at: true,
 });
 
-// Public organs schemas  
+// Public organs schemas
 export const insertPublicOrganSchema = createInsertSchema(publicOrgans).omit({
   id: true,
   created_at: true,
