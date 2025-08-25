@@ -19,10 +19,10 @@ export interface ValidationResult {
 }
 
 export class DocumentValidationService implements IDocumentValidationService {
-  
+
   private readonly REQUIRED_FIELDS = [
     'title',
-    'documentType', 
+    'documentType',
     'publicOrgan',
     'responsible',
     'mainSubject',
@@ -81,7 +81,7 @@ export class DocumentValidationService implements IDocumentValidationService {
 
   validateRequiredFields(data: any): string[] {
     const missing: string[] = [];
-    
+
     for (const field of this.REQUIRED_FIELDS) {
       if (!data[field] || data[field].toString().trim() === '') {
         missing.push(`Campo obrigatório: ${this.getFieldDisplayName(field)}`);
@@ -99,6 +99,18 @@ export class DocumentValidationService implements IDocumentValidationService {
 
   async calculateFileHash(file: File): Promise<string> {
     try {
+      // Verificar se o arquivo é válido
+      if (!file || !(file instanceof File)) {
+        console.warn('Arquivo inválido para cálculo de hash:', file);
+        return 'INVALID_FILE_HASH';
+      }
+
+      // Verificar se o arquivo tem o método arrayBuffer
+      if (typeof file.arrayBuffer !== 'function') {
+        console.warn('Arquivo não tem método arrayBuffer:', file);
+        return 'NO_ARRAYBUFFER_HASH';
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));

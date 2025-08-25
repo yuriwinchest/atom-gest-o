@@ -1,260 +1,397 @@
-import { footer_pages as footerPagesTable, insertAvailabilityOptionSchema, insertConfidentialityLevelSchema, insertDocumentAuthoritySchema, insertDocumentRelationSchema, insertDocumentSchema, insertDocumentTypeSchema, insertFooterPageSchema, insertFormValidationSchema, insertLanguageOptionSchema, insertMainSubjectSchema, insertPublicOrganSchema, insertResponsibleSectorSchema, insertRightsOptionSchema, insertUserSchema, loginSchema, searchDocumentsSchema } from "@shared/schema";
-import { createHash } from 'crypto';
+import {
+  documents as documentsTable,
+  footer_pages as footerPagesTable,
+  insertAvailabilityOptionSchema,
+  insertConfidentialityLevelSchema,
+  insertDocumentAuthoritySchema,
+  insertDocumentRelationSchema,
+  insertDocumentSchema,
+  insertDocumentTypeSchema,
+  insertFooterPageSchema,
+  insertFormValidationSchema,
+  insertLanguageOptionSchema,
+  insertMainSubjectSchema,
+  insertPublicOrganSchema,
+  insertResponsibleSectorSchema,
+  insertRightsOptionSchema,
+  insertUserSchema,
+  loginSchema,
+  searchDocumentsSchema,
+} from "@shared/schema";
+import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import multer from 'multer';
+import multer from "multer";
 import { AnalyticsTracker } from "./analytics-tracker";
 import { db } from "./db";
 import { storage } from "./storage";
+import { supabaseAdmin } from "./supabase";
 
 // Configurar multer para upload de arquivos em memória - SEM LIMITES DE TAMANHO
 const upload = multer({
-  storage: multer.memoryStorage()
+  storage: multer.memoryStorage(),
   // REMOVIDO: limits - Agora aceita arquivos de qualquer tamanho
 });
 
 // Função para categorização automática baseada no tipo de arquivo
 function getAutomaticCategory(fileName: string, mimeType?: string): string {
   // Extrair extensão do arquivo
-  const extension = fileName.toLowerCase().split('.').pop() || '';
-  const mime = (mimeType || '').toLowerCase();
+  const extension = fileName.toLowerCase().split(".").pop() || "";
+  const mime = (mimeType || "").toLowerCase();
 
   // Categorias de imagem
-  if (mime.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif'].includes(extension)) {
-    return 'Imagens';
+  if (
+    mime.includes("image") ||
+    [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "bmp",
+      "webp",
+      "svg",
+      "ico",
+      "tiff",
+      "tif",
+    ].includes(extension)
+  ) {
+    return "Imagens";
   }
 
   // Categorias de vídeo
-  if (mime.includes('video') || ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v', '3gp', 'ogv'].includes(extension)) {
-    return 'Vídeos';
+  if (
+    mime.includes("video") ||
+    [
+      "mp4",
+      "avi",
+      "mkv",
+      "mov",
+      "wmv",
+      "flv",
+      "webm",
+      "m4v",
+      "3gp",
+      "ogv",
+    ].includes(extension)
+  ) {
+    return "Vídeos";
   }
 
   // Categorias de áudio
-  if (mime.includes('audio') || ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus', 'aiff'].includes(extension)) {
-    return 'Áudio';
+  if (
+    mime.includes("audio") ||
+    ["mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "opus", "aiff"].includes(
+      extension
+    )
+  ) {
+    return "Áudio";
   }
 
   // Categorias de documento
-  if (mime.includes('pdf') ||
-      mime.includes('document') ||
-      mime.includes('word') ||
-      mime.includes('text') ||
-      ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'pages'].includes(extension)) {
-    return 'Documentos';
+  if (
+    mime.includes("pdf") ||
+    mime.includes("document") ||
+    mime.includes("word") ||
+    mime.includes("text") ||
+    ["pdf", "doc", "docx", "txt", "rtf", "odt", "pages"].includes(extension)
+  ) {
+    return "Documentos";
   }
 
   // Categorias de planilha
-  if (mime.includes('spreadsheet') ||
-      mime.includes('excel') ||
-      ['xls', 'xlsx', 'csv', 'ods', 'numbers'].includes(extension)) {
-    return 'Documentos';
+  if (
+    mime.includes("spreadsheet") ||
+    mime.includes("excel") ||
+    ["xls", "xlsx", "csv", "ods", "numbers"].includes(extension)
+  ) {
+    return "Documentos";
   }
 
   // Categorias de apresentação
-  if (mime.includes('presentation') ||
-      mime.includes('powerpoint') ||
-      ['ppt', 'pptx', 'odp', 'key'].includes(extension)) {
-    return 'Documentos';
+  if (
+    mime.includes("presentation") ||
+    mime.includes("powerpoint") ||
+    ["ppt", "pptx", "odp", "key"].includes(extension)
+  ) {
+    return "Documentos";
   }
 
   // Arquivos de código e outros
-  if (['js', 'ts', 'jsx', 'tsx', 'html', 'css', 'json', 'xml', 'yml', 'yaml', 'md', 'sql', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'sh', 'bat'].includes(extension)) {
-    return 'Outros';
+  if (
+    [
+      "js",
+      "ts",
+      "jsx",
+      "tsx",
+      "html",
+      "css",
+      "json",
+      "xml",
+      "yml",
+      "yaml",
+      "md",
+      "sql",
+      "py",
+      "java",
+      "cpp",
+      "c",
+      "h",
+      "php",
+      "rb",
+      "go",
+      "rs",
+      "sh",
+      "bat",
+    ].includes(extension)
+  ) {
+    return "Outros";
   }
 
   // Arquivos compactados
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(extension)) {
-    return 'Outros';
+  if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz"].includes(extension)) {
+    return "Outros";
   }
 
   // Categoria padrão
-  return 'Outros';
+  return "Outros";
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-
   // CONTAGEM DE DOCUMENTOS - PRIMEIRA ROTA DEFINIDA
   app.get("/api/documents/category-counts", async (req, res) => {
-    console.log('📊 === ROTA DE CONTAGEM CHAMADA AGORA ===');
+    console.log("📊 === ROTA DE CONTAGEM CHAMADA AGORA ===");
 
     try {
-      // CORREÇÃO: Usar a tabela files do Supabase em vez de documentsTable
-      const { storage } = await import('./storage');
+      // Buscar documentos do banco para contagem real
+      const allDocuments = await db.select().from(documentsTable);
 
-      // Buscar todos os arquivos ativos do Supabase
-      const allFiles = await storage.getDocuments();
+      // Contar imagens anexadas
+      let attachedImagesCount = 0;
+      allDocuments.forEach((doc) => {
+        try {
+          if (doc.content) {
+            const contentObj = JSON.parse(doc.content);
+            if (
+              contentObj.additionalImages &&
+              Array.isArray(contentObj.additionalImages)
+            ) {
+              attachedImagesCount += contentObj.additionalImages.length;
+            }
+          }
+        } catch (parseError) {
+          // Ignorar erros de parse
+        }
+      });
 
-      console.log('📊 Total de arquivos encontrados:', allFiles.length);
+      // Contar todos os arquivos anexados (não apenas imagens)
+      let totalAttachedFiles = 0;
+      allDocuments.forEach((doc) => {
+        try {
+          if (doc.content) {
+            const contentObj = JSON.parse(doc.content);
+            // Contar imagens anexadas
+            if (
+              contentObj.additionalImages &&
+              Array.isArray(contentObj.additionalImages)
+            ) {
+              totalAttachedFiles += contentObj.additionalImages.length;
+            }
+            // Contar outros arquivos anexados se existirem
+            if (
+              contentObj.attachedFiles &&
+              Array.isArray(contentObj.attachedFiles)
+            ) {
+              totalAttachedFiles += contentObj.attachedFiles.length;
+            }
+          }
+        } catch (parseError) {
+          // Ignorar erros de parse
+        }
+      });
 
-      // Verificar se allFiles é um array
-      if (!Array.isArray(allFiles)) {
-        console.error('❌ allFiles não é um array:', typeof allFiles, allFiles);
-        return res.status(500).json({ error: 'Erro na estrutura dos dados' });
+      // Verificar se allDocuments é um array
+      if (!Array.isArray(allDocuments)) {
+        console.error(
+          "❌ allDocuments não é um array:",
+          typeof allDocuments,
+          allDocuments
+        );
+        return res.status(500).json({ error: "Erro na estrutura dos dados" });
       }
 
-      // Contar por categoria usando a tabela files
       const result = {
-        'all': allFiles.length,
-        'documents': allFiles.filter(file => file.file_type === 'documents' || file.category === 'documents').length,
-        'images': allFiles.filter(file => file.file_type === 'images' || file.category === 'images').length,
-        'spreadsheets': allFiles.filter(file => file.file_type === 'spreadsheets' || file.category === 'spreadsheets').length,
-        'presentations': allFiles.filter(file => file.file_type === 'presentations' || file.category === 'presentations').length,
-        'archives': allFiles.filter(file => file.file_type === 'archives' || file.category === 'archives').length,
-        'videos': allFiles.filter(file => file.file_type === 'videos' || file.category === 'videos').length,
-        'audio': allFiles.filter(file => file.file_type === 'audio' || file.category === 'audio').length
+        all: allDocuments.length + totalAttachedFiles,
+        Documentos: allDocuments.filter((doc) => doc.category === "Documentos")
+          .length,
+        Imagens:
+          allDocuments.filter((doc) => doc.category === "Imagens").length +
+          attachedImagesCount,
+        Vídeos: allDocuments.filter((doc) => doc.category === "Vídeos").length,
+        Áudio: allDocuments.filter((doc) => doc.category === "Áudio").length,
+        Outros: allDocuments.filter((doc) => doc.category === "Outros").length,
       };
 
-      console.log('📊 === CONTAGEM REAL DO SUPABASE ===', result);
+      console.log("📊 === CONTAGEM REAL ===", result);
       res.status(200).json(result);
     } catch (error) {
-      console.error('📊 === ERRO CAPTURADO ===', error);
-      res.status(500).json({ error: 'Erro na contagem' });
+      console.error("📊 === ERRO CAPTURADO ===", error);
+      res.status(500).json({ error: "Erro na contagem" });
     }
   });
 
   // NOVA API - BUSCAR FOTOS ANEXADAS
   app.get("/api/documents/attached-photos", async (req, res) => {
-    console.log('📸 === BUSCANDO FOTOS ANEXADAS ===');
+    console.log("📸 === BUSCANDO FOTOS ANEXADAS ===");
 
     try {
-      // CORREÇÃO: Usar a tabela files do Supabase
-      const { storage } = await import('./storage');
-
-      // Buscar todos os arquivos de imagem do Supabase
-      const allFiles = await storage.getDocuments();
+      const allDocuments = await db.select().from(documentsTable);
       const attachedPhotos = [];
 
-      // Filtrar apenas arquivos de imagem
-      const imageFiles = allFiles.filter(file =>
-        file.file_type === 'images' ||
-        file.category === 'images' ||
-        file.mime_type?.startsWith('image/')
-      );
-
-      imageFiles.forEach((file, index) => {
-        attachedPhotos.push({
-          id: file.id || `photo-${index}`,
-          documentId: file.id,
-          documentTitle: file.name || file.original_name || 'Imagem',
-          title: file.original_name || file.name || `Foto ${index + 1}`,
-          fileName: file.filename || file.name,
-          originalName: file.original_name || file.name,
-          fileSize: file.file_size || 0,
-          mimeType: file.mime_type || 'image/jpeg',
-          uploadPath: file.file_path || '',
-          supabaseId: file.id,
-          category: 'Imagens',
-          description: `Imagem: ${file.name || file.original_name}`,
-          created_at: file.created_at || new Date().toISOString(),
-          type: 'image_file'
-        });
+      allDocuments.forEach((doc) => {
+        try {
+          if (doc.content) {
+            const contentObj = JSON.parse(doc.content);
+            if (
+              contentObj.additionalImages &&
+              Array.isArray(contentObj.additionalImages)
+            ) {
+              contentObj.additionalImages.forEach((photo, index) => {
+                attachedPhotos.push({
+                  id: `${doc.id}-photo-${index}`,
+                  documentId: doc.id,
+                  documentTitle: doc.title,
+                  title:
+                    photo.originalName || photo.fileName || `Foto ${index + 1}`,
+                  fileName: photo.fileName,
+                  originalName: photo.originalName,
+                  fileSize: photo.fileSize,
+                  mimeType: photo.mimeType,
+                  uploadPath: photo.uploadPath,
+                  supabaseId: photo.supabaseId,
+                  category: "Imagens",
+                  description: `Foto anexada ao documento: ${doc.title}`,
+                  created_at: doc.created_at,
+                  type: "attached_photo",
+                });
+              });
+            }
+          }
+        } catch (parseError) {
+          console.log(
+            `⚠️ Erro ao processar doc ${doc.id}:`,
+            parseError.message
+          );
+        }
       });
 
-      console.log(`📸 === ENCONTRADAS ${attachedPhotos.length} FOTOS ANEXADAS ===`);
+      console.log(
+        `📸 === ENCONTRADAS ${attachedPhotos.length} FOTOS ANEXADAS ===`
+      );
       res.json(attachedPhotos);
     } catch (error) {
-      console.error('📸 === ERRO AO BUSCAR FOTOS ===', error);
-      res.status(500).json({ error: 'Erro ao buscar fotos anexadas' });
+      console.error("📸 === ERRO AO BUSCAR FOTOS ===", error);
+      res.status(500).json({ error: "Erro ao buscar fotos anexadas" });
     }
   });
 
   // Rota de diagnóstico para Supabase em PRODUÇÃO
   app.get("/api/supabase-status", async (req, res) => {
     try {
-      console.log('🔍 [DIAGNÓSTICO] Testando conectividade Supabase em produção...');
+      console.log(
+        "🔍 [DIAGNÓSTICO] Testando conectividade Supabase em produção..."
+      );
 
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import("./supabase");
       const results = {
-        environment: process.env.NODE_ENV || 'unknown',
+        environment: process.env.NODE_ENV || "unknown",
         timestamp: new Date().toISOString(),
         host: req.headers.host,
-        userAgent: req.headers['user-agent'],
-        tests: {}
+        userAgent: req.headers["user-agent"],
+        tests: {},
       };
 
       // Teste 1: Verificar conectividade básica com PostgreSQL
       try {
         const { data: testData, error: testError } = await supabase
-          .from('documents')
-          .select('id')
+          .from("documents")
+          .select("id")
           .limit(1);
 
         results.tests.postgresConnection = {
           success: !testError,
           error: testError?.message,
-          dataCount: testData?.length || 0
+          dataCount: testData?.length || 0,
         };
-        console.log('✅ PostgreSQL conectado via Supabase');
+        console.log("✅ PostgreSQL conectado via Supabase");
       } catch (error) {
         results.tests.postgresConnection = {
           success: false,
-          error: error.message
+          error: error.message,
         };
-        console.log('❌ Erro na conexão PostgreSQL:', error.message);
+        console.log("❌ Erro na conexão PostgreSQL:", error.message);
       }
 
       // Teste 2: Verificar Storage - bucket images
       try {
         const { data: imagesList, error: imagesError } = await supabase.storage
-          .from('images')
-          .list('', { limit: 5 });
+          .from("images")
+          .list("", { limit: 5 });
 
         results.tests.storageImages = {
           success: !imagesError,
           error: imagesError?.message,
           filesCount: imagesList?.length || 0,
-          files: imagesList?.slice(0, 3).map(f => f.name) || []
+          files: imagesList?.slice(0, 3).map((f) => f.name) || [],
         };
         console.log('✅ Storage bucket "images" acessível');
       } catch (error) {
         results.tests.storageImages = {
           success: false,
-          error: error.message
+          error: error.message,
         };
-        console.log('❌ Erro no bucket images:', error.message);
+        console.log("❌ Erro no bucket images:", error.message);
       }
 
       // Teste 3: Verificar foto específica que sabemos que existe
       try {
         const { data: photoData, error: photoError } = await supabase.storage
-          .from('images')
-          .download('1752694706400_7i6ta3_FOTO_CAMPANHA.jpeg');
+          .from("images")
+          .download("1752694706400_7i6ta3_FOTO_CAMPANHA.jpeg");
 
         results.tests.specificPhoto = {
           success: !photoError,
           error: photoError?.message,
-          photoSize: photoData?.size || 0
+          photoSize: photoData?.size || 0,
         };
-        console.log('✅ Foto específica acessível');
+        console.log("✅ Foto específica acessível");
       } catch (error) {
         results.tests.specificPhoto = {
           success: false,
-          error: error.message
+          error: error.message,
         };
-        console.log('❌ Erro na foto específica:', error.message);
+        console.log("❌ Erro na foto específica:", error.message);
       }
 
       // Teste 4: URLs públicas diretas
       const directUrls = {
         api: `/api/documents/photos/1752694706400_7i6ta3_FOTO_CAMPANHA.jpeg`,
-        supabaseDirect: `https://fbqocpozjmuzrdeacktb.supabase.co/storage/v1/object/public/images/1752694706400_7i6ta3_FOTO_CAMPANHA.jpeg`
+        supabaseDirect: `https://fbqocpozjmuzrdeacktb.supabase.co/storage/v1/object/public/images/1752694706400_7i6ta3_FOTO_CAMPANHA.jpeg`,
       };
 
       results.tests.urlGeneration = {
         success: true,
-        urls: directUrls
+        urls: directUrls,
       };
 
-      console.log('🔍 [DIAGNÓSTICO COMPLETO]:', results);
+      console.log("🔍 [DIAGNÓSTICO COMPLETO]:", results);
       res.json(results);
-
     } catch (error) {
-      console.error('❌ [DIAGNÓSTICO FALHOU]:', error);
+      console.error("❌ [DIAGNÓSTICO FALHOU]:", error);
       res.status(500).json({
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
   });
@@ -285,25 +422,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const loginData = loginSchema.parse(req.body);
       console.log("✅ Dados validados:", loginData);
 
-      const user = await storage.authenticateUser(loginData.email, loginData.password);
+      const user = await storage.authenticateUser(
+        loginData.email,
+        loginData.password
+      );
       console.log("🔍 Usuario encontrado:", user ? "SIM" : "NÃO");
 
       // Importar serviço de monitoramento
-      const { loginMonitoringService } = await import('./services/loginMonitoringService');
+      const { loginMonitoringService } = await import(
+        "./services/loginMonitoringService"
+      );
 
       // Preparar dados para o monitoramento
       const monitoringData = {
         username: user?.username || loginData.email,
         email: loginData.email,
-        ip_address: req.ip || req.connection.remoteAddress || 'unknown',
-        user_agent: req.get('User-Agent') || 'unknown',
+        ip_address: req.ip || req.connection.remoteAddress || "unknown",
+        user_agent: req.get("User-Agent") || "unknown",
         success: !!user,
         user_id: user?.id,
         location_info: {
-          country: 'BR',
-          city: 'Unknown',
-          timezone: 'America/Sao_Paulo'
-        }
+          country: "BR",
+          city: "Unknown",
+          timezone: "America/Sao_Paulo",
+        },
       };
 
       if (user) {
@@ -311,7 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { password, ...userWithoutPassword } = user;
 
         // Gerar session ID único para o usuário
-        const { v4: uuidv4 } = await import('uuid');
+        const { v4: uuidv4 } = await import("uuid");
         const sessionId = uuidv4();
 
         // Salvar usuário na sessão
@@ -329,14 +471,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           session_id: sessionId,
           ip_address: monitoringData.ip_address,
           user_agent: monitoringData.user_agent,
-          location_info: monitoringData.location_info
+          location_info: monitoringData.location_info,
         });
 
         console.log("✅ Login realizado com sucesso para:", user.email);
         res.json({
           success: true,
           message: "Login realizado com sucesso",
-          user: userWithoutPassword
+          user: userWithoutPassword,
         });
       } else {
         console.log("❌ Credenciais inválidas para:", loginData.email);
@@ -344,35 +486,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Registrar tentativa de login falhada
         await loginMonitoringService.logLoginAttempt({
           ...monitoringData,
-          failure_reason: 'Invalid credentials'
+          failure_reason: "Invalid credentials",
         });
 
         res.status(401).json({
           success: false,
-          message: "Email ou senha incorretos"
+          message: "Email ou senha incorretos",
         });
       }
     } catch (error: any) {
-      console.error('❌ Erro no login:', error);
+      console.error("❌ Erro no login:", error);
 
       // Registrar tentativa de login com erro
       try {
-        const { loginMonitoringService } = await import('./services/loginMonitoringService');
+        const { loginMonitoringService } = await import(
+          "./services/loginMonitoringService"
+        );
         await loginMonitoringService.logLoginAttempt({
-          username: req.body.email || 'unknown',
+          username: req.body.email || "unknown",
           email: req.body.email,
-          ip_address: req.ip || req.connection.remoteAddress || 'unknown',
-          user_agent: req.get('User-Agent') || 'unknown',
+          ip_address: req.ip || req.connection.remoteAddress || "unknown",
+          user_agent: req.get("User-Agent") || "unknown",
           success: false,
-          failure_reason: 'System error: ' + error.message
+          failure_reason: "System error: " + error.message,
         });
       } catch (monitoringError) {
-        console.error('❌ Erro ao registrar tentativa de login:', monitoringError);
+        console.error(
+          "❌ Erro ao registrar tentativa de login:",
+          monitoringError
+        );
       }
 
       res.status(400).json({
         success: false,
-        message: "Dados de login inválidos"
+        message: "Dados de login inválidos",
       });
     }
   });
@@ -384,12 +531,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user) {
       res.json({
         success: true,
-        user: user
+        user: user,
       });
     } else {
       res.json({
         success: false,
-        message: "Não há usuário logado"
+        message: "Não há usuário logado",
       });
     }
   });
@@ -402,7 +549,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (sessionId) {
         // Importar serviço de monitoramento
-        const { loginMonitoringService } = await import('./services/loginMonitoringService');
+        const { loginMonitoringService } = await import(
+          "./services/loginMonitoringService"
+        );
 
         // Encerrar sessão no monitoramento
         await loginMonitoringService.endSession(sessionId);
@@ -412,17 +561,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.session) {
         req.session.destroy((err: any) => {
           if (err) {
-            console.error('Erro ao destruir sessão:', err);
-            res.status(500).json({ success: false, message: "Erro ao fazer logout" });
+            console.error("Erro ao destruir sessão:", err);
+            res
+              .status(500)
+              .json({ success: false, message: "Erro ao fazer logout" });
           } else {
-            res.json({ success: true, message: "Logout realizado com sucesso" });
+            res.json({
+              success: true,
+              message: "Logout realizado com sucesso",
+            });
           }
         });
       } else {
         res.json({ success: true, message: "Logout realizado com sucesso" });
       }
     } catch (error) {
-      console.error('❌ Erro no logout:', error);
+      console.error("❌ Erro no logout:", error);
       res.status(500).json({ success: false, message: "Erro ao fazer logout" });
     }
   });
@@ -432,70 +586,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para streaming direto de PDF - funciona em iframe
   app.get("/api/pdf-stream/:id", async (req, res) => {
     try {
-      console.log('🔥 ROTA PDF-STREAM CHAMADA - ID:', req.params.id);
+      console.log("🔥 ROTA PDF-STREAM CHAMADA - ID:", req.params.id);
       const id = parseInt(req.params.id);
       const document = await storage.getDocumentById(id);
 
       if (!document) {
-        console.log('❌ Documento não encontrado');
+        console.log("❌ Documento não encontrado");
         return res.status(404).send("Documento não encontrado");
       }
 
       let documentDetails = null;
       try {
-        if (document.content && typeof document.content === 'string') {
-          if (document.content.startsWith('{')) {
+        if (document.content && typeof document.content === "string") {
+          if (document.content.startsWith("{")) {
             documentDetails = JSON.parse(document.content);
           }
         }
       } catch (error) {
-        console.warn('Erro ao parsear dados do documento:', error);
+        console.warn("Erro ao parsear dados do documento:", error);
       }
 
       const supabaseUrl = documentDetails?.supabaseUrl;
       const fileInfo = documentDetails?.fileInfo;
       const fileName = fileInfo?.fileName || documentDetails?.fileName;
 
-      console.log('📄 Supabase URL:', supabaseUrl);
-      console.log('📄 File Info:', fileInfo);
+      console.log("📄 Supabase URL:", supabaseUrl);
+      console.log("📄 File Info:", fileInfo);
 
       if (supabaseUrl) {
         try {
-          const { supabase } = await import('./supabase');
+          const { supabase } = await import("./supabase");
           const { data, error } = await supabase.storage
-            .from('documents')
+            .from("documents")
             .download(supabaseUrl);
 
           if (error || !data) {
-            console.log('❌ Erro no Supabase:', error);
+            console.log("❌ Erro no Supabase:", error);
             return res.status(404).send("Arquivo não encontrado no Supabase");
           }
 
-          const mimeType = fileInfo?.mimeType || documentDetails?.fileType || 'application/pdf';
+          const mimeType =
+            fileInfo?.mimeType ||
+            documentDetails?.fileType ||
+            "application/pdf";
 
-          console.log('✅ Enviando PDF via stream');
+          console.log("✅ Enviando PDF via stream");
 
-          res.setHeader('Content-Type', mimeType);
-          res.setHeader('Content-Disposition', `inline; filename="${fileName || document.title}"`);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader("Content-Type", mimeType);
+          res.setHeader(
+            "Content-Disposition",
+            `inline; filename="${fileName || document.title}"`
+          );
+          res.setHeader("Cache-Control", "public, max-age=3600");
+          res.setHeader("Access-Control-Allow-Origin", "*");
 
           const arrayBuffer = await data.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
-          console.log('📦 Buffer length:', buffer.length);
+          console.log("📦 Buffer length:", buffer.length);
           res.send(buffer);
-
         } catch (supabaseError) {
-          console.error('Erro ao buscar arquivo:', supabaseError);
+          console.error("Erro ao buscar arquivo:", supabaseError);
           res.status(500).send("Erro ao carregar arquivo");
         }
       } else {
-        console.log('❌ Supabase URL não disponível');
+        console.log("❌ Supabase URL não disponível");
         res.status(404).send("Arquivo não disponível");
       }
     } catch (error) {
-      console.error('Erro na rota de stream:', error);
+      console.error("Erro na rota de stream:", error);
       res.status(500).send("Erro interno do servidor");
     }
   });
@@ -504,19 +663,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/test-pdf", async (req, res) => {
     try {
       // PDF real em base64 (pequeno PDF de teste)
-      const realPdfBase64 = "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQ29udGVudHMgNCAwIFIKL1Jlc291cmNlcyA8PAovRm9udCA8PAovRjEgNSAwIFIKPj4KPj4KPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSA2IFRmCjEwIDUwIFRkCihET0NVTUVOVE8gUkVBTCBGVU5DSU9OQU5ETykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQ0NwolJUVPRg==";
+      const realPdfBase64 =
+        "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQ29udGVudHMgNCAwIFIKL1Jlc291cmNlcyA8PAovRm9udCA8PAovRjEgNSAwIFIKPj4KPj4KPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSA2IFRmCjEwIDUwIFRkCihET0NVTUVOVE8gUkVBTCBGVU5DSU9OQU5ETykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQxMQolJUVPRg==";
 
-      console.log('🧪 ROTA DE TESTE PDF - retornando PDF real');
+      console.log("🧪 ROTA DE TESTE PDF - retornando PDF real");
 
       res.json({
         base64: realPdfBase64,
-        mimeType: 'application/pdf',
-        fileName: 'teste-pdf-funcionando.pdf',
-        size: Buffer.from(realPdfBase64, 'base64').length
+        mimeType: "application/pdf",
+        fileName: "teste-pdf-funcionando.pdf",
+        size: Buffer.from(realPdfBase64, "base64").length,
       });
-
     } catch (error) {
-      console.error('Erro na rota de teste:', error);
+      console.error("Erro na rota de teste:", error);
       res.status(500).json({ error: "Erro interno" });
     }
   });
@@ -524,86 +683,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota API para obter dados de qualquer documento (PDF, Word, Excel, PowerPoint) como base64
   app.get("/api/pdf-data/:id", async (req, res) => {
     try {
-      console.log('🔥 ROTA DOCUMENT-DATA CHAMADA - ID:', req.params.id);
+      console.log("🔥 ROTA DOCUMENT-DATA CHAMADA - ID:", req.params.id);
       const id = parseInt(req.params.id);
       const document = await storage.getDocumentById(id);
 
       if (!document) {
-        console.log('❌ Documento não encontrado');
+        console.log("❌ Documento não encontrado");
         return res.status(404).json({ error: "Documento não encontrado" });
       }
 
       let documentDetails = null;
       try {
-        if (document.content && typeof document.content === 'string') {
-          if (document.content.startsWith('{')) {
+        if (document.content && typeof document.content === "string") {
+          if (document.content.startsWith("{")) {
             documentDetails = JSON.parse(document.content);
           }
         }
       } catch (error) {
-        console.warn('Erro ao parsear dados do documento:', error);
+        console.warn("Erro ao parsear dados do documento:", error);
       }
 
       const supabaseUrl = documentDetails?.supabaseUrl;
       const fileInfo = documentDetails?.fileInfo;
       const fileName = fileInfo?.fileName || documentDetails?.fileName;
 
-      console.log('📄 Supabase URL:', supabaseUrl);
-      console.log('📄 File Info:', fileInfo);
+      console.log("📄 Supabase URL:", supabaseUrl);
+      console.log("📄 File Info:", fileInfo);
 
       if (supabaseUrl) {
         try {
-          const { supabase } = await import('./supabase');
+          const { supabase } = await import("./supabase");
 
-          console.log('🔍 Tentando baixar do bucket "documents" o arquivo:', supabaseUrl);
+          console.log(
+            '🔍 Tentando baixar do bucket "documents" o arquivo:',
+            supabaseUrl
+          );
 
           const { data, error } = await supabase.storage
-            .from('documents')
+            .from("documents")
             .download(supabaseUrl);
 
-          console.log('📋 Resposta do Supabase Storage:');
-          console.log('  - Error:', error);
-          console.log('  - Data type:', typeof data);
-          console.log('  - Data size:', data ? data.size : 'N/A');
-          console.log('  - Data content type:', data ? data.type : 'N/A');
+          console.log("📋 Resposta do Supabase Storage:");
+          console.log("  - Error:", error);
+          console.log("  - Data type:", typeof data);
+          console.log("  - Data size:", data ? data.size : "N/A");
+          console.log("  - Data content type:", data ? data.type : "N/A");
 
           if (error) {
-            console.log('❌ Erro detalhado no Supabase:', JSON.stringify(error, null, 2));
-            return res.status(404).json({ error: "Erro no Supabase: " + error.message });
+            console.log(
+              "❌ Erro detalhado no Supabase:",
+              JSON.stringify(error, null, 2)
+            );
+            return res
+              .status(404)
+              .json({ error: "Erro no Supabase: " + error.message });
           }
 
           if (!data) {
-            console.log('❌ Nenhum dado retornado do Supabase');
-            return res.status(404).json({ error: "Arquivo não encontrado no Supabase" });
+            console.log("❌ Nenhum dado retornado do Supabase");
+            return res
+              .status(404)
+              .json({ error: "Arquivo não encontrado no Supabase" });
           }
 
           // Função para detectar tipo de arquivo e MIME type
           const detectMimeType = (filename: string, fallback: string) => {
-            if (fallback && fallback !== 'application/pdf') return fallback;
+            if (fallback && fallback !== "application/pdf") return fallback;
 
-            const ext = filename.toLowerCase().split('.').pop() || '';
+            const ext = filename.toLowerCase().split(".").pop() || "";
             const mimeTypes: Record<string, string> = {
-              'pdf': 'application/pdf',
-              'doc': 'application/msword',
-              'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-              'xls': 'application/vnd.ms-excel',
-              'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'ppt': 'application/vnd.ms-powerpoint',
-              'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+              pdf: "application/pdf",
+              doc: "application/msword",
+              docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              xls: "application/vnd.ms-excel",
+              xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              ppt: "application/vnd.ms-powerpoint",
+              pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             };
 
-            return mimeTypes[ext] || fallback || 'application/octet-stream';
+            return mimeTypes[ext] || fallback || "application/octet-stream";
           };
 
           const mimeType = detectMimeType(
-            fileName || '',
-            fileInfo?.mimeType || documentDetails?.fileType || 'application/pdf'
+            fileName || "",
+            fileInfo?.mimeType || documentDetails?.fileType || "application/pdf"
           );
 
-          const fileTypeDisplay = fileName.includes('.pdf') ? 'PDF' :
-                                fileName.includes('.doc') ? 'Word' :
-                                fileName.includes('.xls') ? 'Excel' :
-                                fileName.includes('.ppt') ? 'PowerPoint' : 'Documento';
+          const fileTypeDisplay = fileName.includes(".pdf")
+            ? "PDF"
+            : fileName.includes(".doc")
+            ? "Word"
+            : fileName.includes(".xls")
+            ? "Excel"
+            : fileName.includes(".ppt")
+            ? "PowerPoint"
+            : "Documento";
 
           console.log(`✅ Convertendo ${fileTypeDisplay} para base64`);
 
@@ -612,51 +786,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const buffer = Buffer.from(arrayBuffer);
 
           // Verificar os primeiros bytes para ver se é realmente um documento válido
-          const firstBytes = buffer.slice(0, 20).toString('ascii');
-          console.log('🔍 Primeiros 20 bytes (ASCII):', firstBytes);
-          console.log('🔍 Primeiros 4 bytes (hex):', buffer.slice(0, 4).toString('hex'));
+          const firstBytes = buffer.slice(0, 20).toString("ascii");
+          console.log("🔍 Primeiros 20 bytes (ASCII):", firstBytes);
+          console.log(
+            "🔍 Primeiros 4 bytes (hex):",
+            buffer.slice(0, 4).toString("hex")
+          );
 
           // DETECÇÃO AUTOMÁTICA DE DADOS CORROMPIDOS E CORREÇÃO
-          const isCorrupted = firstBytes.includes('<!DOCTYPE') || firstBytes.includes('<html');
-          console.log('🔍 VERIFICANDO CORRUPÇÃO:', { firstBytes, isCorrupted });
+          const isCorrupted =
+            firstBytes.includes("<!DOCTYPE") || firstBytes.includes("<html");
+          console.log("🔍 VERIFICANDO CORRUPÇÃO:", { firstBytes, isCorrupted });
 
           if (isCorrupted) {
-            console.log('⚠️ DADOS CORROMPIDOS DETECTADOS - Usando PDF real automaticamente');
+            console.log(
+              "⚠️ DADOS CORROMPIDOS DETECTADOS - Usando PDF real automaticamente"
+            );
 
             // Retornar PDF real imediatamente
-            const realPdfBase64 = "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA0IDAgUgo+Pgo+PgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSA2IFRmCjEwIDUwIFRkCihET0NVTUVOVE8gUkVBTCBGVU5DSU9OQU5ETykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQxMQolJUVPRg==";
+            const realPdfBase64 =
+              "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA0IDAgUgo+Pgo+PgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSA2IFRmCjEwIDUwIFRkCihET0NVTUVOVE8gUkVBTCBGVU5DSU9OQU5ETykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQxMQolJUVPRg==";
 
             return res.json({
               base64: realPdfBase64,
-              mimeType: 'application/pdf',
+              mimeType: "application/pdf",
               fileName: fileName || document.title,
               size: 411,
-              corrected: true
+              corrected: true,
             });
           }
 
-          const base64 = buffer.toString('base64');
+          const base64 = buffer.toString("base64");
 
-          console.log('📦 Base64 length:', base64.length);
-          console.log('📦 Primeiros 50 chars do base64:', base64.substring(0, 50));
+          console.log("📦 Base64 length:", base64.length);
+          console.log(
+            "📦 Primeiros 50 chars do base64:",
+            base64.substring(0, 50)
+          );
 
           res.json({
             base64: base64,
             mimeType: mimeType,
             fileName: fileName || document.title,
-            size: buffer.length
+            size: buffer.length,
           });
-
         } catch (supabaseError) {
-          console.error('Erro ao buscar arquivo:', supabaseError);
+          console.error("Erro ao buscar arquivo:", supabaseError);
           res.status(500).json({ error: "Erro ao carregar arquivo" });
         }
       } else {
-        console.log('❌ Supabase URL não disponível');
+        console.log("❌ Supabase URL não disponível");
         res.status(404).json({ error: "Arquivo não disponível" });
       }
     } catch (error) {
-      console.error('Erro na rota de download:', error);
+      console.error("Erro na rota de download:", error);
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -672,18 +855,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // REGISTRAR O DOWNLOAD NAS ESTATÍSTICAS
-      await AnalyticsTracker.trackDownload(id, 'pdf_download');
+      await AnalyticsTracker.trackDownload(id, "pdf_download");
       console.log(`📥 Download PDF registrado para documento ${id}`);
 
       let documentDetails = null;
       try {
-        if (document.content && typeof document.content === 'string') {
-          if (document.content.startsWith('{')) {
+        if (document.content && typeof document.content === "string") {
+          if (document.content.startsWith("{")) {
             documentDetails = JSON.parse(document.content);
           }
         }
       } catch (error) {
-        console.warn('Erro ao parsear dados do documento:', error);
+        console.warn("Erro ao parsear dados do documento:", error);
       }
 
       const supabaseUrl = documentDetails?.supabaseUrl;
@@ -692,34 +875,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (supabaseUrl) {
         try {
-          const { supabase } = await import('./supabase');
+          const { supabase } = await import("./supabase");
           const { data, error } = await supabase.storage
-            .from('documents')
+            .from("documents")
             .download(supabaseUrl);
 
           if (error || !data) {
-            throw new Error('Arquivo não encontrado no Supabase');
+            throw new Error("Arquivo não encontrado no Supabase");
           }
 
-          const mimeType = fileInfo?.mimeType || documentDetails?.fileType || 'application/pdf';
+          const mimeType =
+            fileInfo?.mimeType ||
+            documentDetails?.fileType ||
+            "application/pdf";
 
-          res.setHeader('Content-Type', mimeType);
-          res.setHeader('Content-Disposition', `inline; filename="${fileName || document.title}"`);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader("Content-Type", mimeType);
+          res.setHeader(
+            "Content-Disposition",
+            `inline; filename="${fileName || document.title}"`
+          );
+          res.setHeader("Cache-Control", "public, max-age=3600");
 
           const arrayBuffer = await data.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
           res.send(buffer);
-
         } catch (supabaseError) {
-          console.error('Erro ao buscar arquivo:', supabaseError);
+          console.error("Erro ao buscar arquivo:", supabaseError);
           res.status(500).send("Erro ao carregar arquivo");
         }
       } else {
         res.status(404).send("Arquivo não disponível");
       }
     } catch (error) {
-      console.error('Erro na rota de download:', error);
+      console.error("Erro na rota de download:", error);
       res.status(500).send("Erro interno do servidor");
     }
   });
@@ -741,7 +929,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se documents é um array
       if (!Array.isArray(documents)) {
-        console.error('❌ documents não é um array:', typeof documents, documents);
+        console.error(
+          "❌ documents não é um array:",
+          typeof documents,
+          documents
+        );
         return res.status(500).json({ message: "Erro na estrutura dos dados" });
       }
 
@@ -752,7 +944,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const relatedDocuments = await storage.getRelatedDocuments(doc.id);
             return { ...doc, relatedDocuments };
           } catch (error) {
-            console.error(`Erro ao buscar relacionados para documento ${doc.id}:`, error);
+            console.error(
+              `Erro ao buscar relacionados para documento ${doc.id}:`,
+              error
+            );
             return { ...doc, relatedDocuments: [] };
           }
         })
@@ -787,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.success) {
         return res.status(400).json({
           message: "Dados de busca inválidos",
-          errors: result.error.errors
+          errors: result.error.errors,
         });
       }
 
@@ -800,16 +995,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`📄 Documentos encontrados: ${documents.length}`);
       if (documents.length > 0) {
-        console.log(`📋 Primeiros resultados:`, documents.slice(0, 2).map(d => ({ id: d.id, title: d.title })));
+        console.log(
+          `📋 Primeiros resultados:`,
+          documents.slice(0, 2).map((d) => ({ id: d.id, title: d.title }))
+        );
       }
 
       // Registrar a busca no analytics
       const userData = AnalyticsTracker.getUserDataFromRequest(req);
       await AnalyticsTracker.trackSearch({
         search_term: query,
-        search_results_count: documents.length,
-        referrer: req.headers.referer || '/documentos-publicos',
-        ...userData
+        search_type: "general",
+        results_count: documents.length,
+        page_url: req.headers.referer || "/documentos-publicos",
+        ...userData,
       });
 
       res.json(documents);
@@ -820,19 +1019,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Função para extrair texto automaticamente baseado no tipo de arquivo
-  async function extractTextFromDocument(content: string, fileName?: string): Promise<string> {
+  async function extractTextFromDocument(
+    content: string,
+    fileName?: string
+  ): Promise<string> {
     try {
       let documentDetails;
       try {
         documentDetails = JSON.parse(content);
       } catch (e) {
-        return ''; // Se não for JSON válido, retorna vazio
+        return ""; // Se não for JSON válido, retorna vazio
       }
 
-      const fileType = documentDetails?.fileType?.toLowerCase() || '';
+      const fileType = documentDetails?.fileType?.toLowerCase() || "";
       const fileInfo = documentDetails?.fileInfo;
-      const description = documentDetails?.description || '';
-      const title = documentDetails?.title || fileName || '';
+      const description = documentDetails?.description || "";
+      const title = documentDetails?.title || fileName || "";
 
       // Começar com texto dos metadados sempre
       let extractedText = `Título: ${title}. `;
@@ -841,54 +1043,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Adicionar contexto baseado no tipo de arquivo
-      if (fileType.includes('pdf')) {
-        extractedText += 'Documento PDF. Conteúdo: relatório, formulário, texto oficial, dados técnicos, informações documentais. ';
-      } else if (fileType.includes('word') || fileType.includes('document')) {
-        extractedText += 'Documento Word. Conteúdo: texto formatado, relatório oficial, documento administrativo, correspondência. ';
-      } else if (fileType.includes('excel') || fileType.includes('spreadsheet') || fileType.includes('csv')) {
-        extractedText += 'Planilha Excel/CSV. Conteúdo: dados tabulares, números, cálculos, tabelas, relatórios financeiros, estatísticas. ';
-      } else if (fileType.includes('powerpoint') || fileType.includes('presentation')) {
-        extractedText += 'Apresentação PowerPoint. Conteúdo: slides, gráficos, apresentação visual, treinamento. ';
-      } else if (fileType.includes('image')) {
-        extractedText += 'Arquivo de imagem. Conteúdo: foto, gráfico, diagrama, ilustração, documento digitalizado. ';
-      } else if (fileType.includes('video')) {
-        extractedText += 'Arquivo de vídeo. Conteúdo: gravação, apresentação visual, treinamento em vídeo. ';
-      } else if (fileType.includes('audio')) {
-        extractedText += 'Arquivo de áudio. Conteúdo: gravação sonora, entrevista, ata de reunião gravada. ';
-      } else if (fileType.includes('text')) {
-        extractedText += 'Arquivo de texto. Conteúdo: texto simples, documentação, notas, dados não formatados. ';
+      if (fileType.includes("pdf")) {
+        extractedText +=
+          "Documento PDF. Conteúdo: relatório, formulário, texto oficial, dados técnicos, informações documentais. ";
+      } else if (fileType.includes("word") || fileType.includes("document")) {
+        extractedText +=
+          "Documento Word. Conteúdo: texto formatado, relatório oficial, documento administrativo, correspondência. ";
+      } else if (
+        fileType.includes("excel") ||
+        fileType.includes("spreadsheet") ||
+        fileType.includes("csv")
+      ) {
+        extractedText +=
+          "Planilha Excel/CSV. Conteúdo: dados tabulares, números, cálculos, tabelas, relatórios financeiros, estatísticas. ";
+      } else if (
+        fileType.includes("powerpoint") ||
+        fileType.includes("presentation")
+      ) {
+        extractedText +=
+          "Apresentação PowerPoint. Conteúdo: slides, gráficos, apresentação visual, treinamento. ";
+      } else if (fileType.includes("image")) {
+        extractedText +=
+          "Arquivo de imagem. Conteúdo: foto, gráfico, diagrama, ilustração, documento digitalizado. ";
+      } else if (fileType.includes("video")) {
+        extractedText +=
+          "Arquivo de vídeo. Conteúdo: gravação, apresentação visual, treinamento em vídeo. ";
+      } else if (fileType.includes("audio")) {
+        extractedText +=
+          "Arquivo de áudio. Conteúdo: gravação sonora, entrevista, ata de reunião gravada. ";
+      } else if (fileType.includes("text")) {
+        extractedText +=
+          "Arquivo de texto. Conteúdo: texto simples, documentação, notas, dados não formatados. ";
       }
 
       // Adicionar informações dos metadados do formulário
       const metadataFields = [
-        'documentType', 'publicOrgan', 'responsibleSector', 'responsible',
-        'mainSubject', 'confidentialityLevel', 'legalBase', 'relatedProcess',
-        'availability', 'language', 'rights', 'period', 'digitalizationLocation',
-        'documentAuthority'
+        "documentType",
+        "publicOrgan",
+        "responsibleSector",
+        "responsible",
+        "mainSubject",
+        "confidentialityLevel",
+        "legalBase",
+        "relatedProcess",
+        "availability",
+        "language",
+        "rights",
+        "period",
+        "digitalizationLocation",
+        "documentAuthority",
       ];
 
       for (const field of metadataFields) {
         const value = documentDetails[field];
-        if (value && typeof value === 'string' && value.trim() !== '') {
+        if (value && typeof value === "string" && value.trim() !== "") {
           extractedText += `${value} `;
         }
       }
 
       // Adicionar tags se existirem
       if (documentDetails.tags && Array.isArray(documentDetails.tags)) {
-        extractedText += documentDetails.tags.join(' ') + ' ';
+        extractedText += documentDetails.tags.join(" ") + " ";
       }
 
-      console.log(`🔍 Texto extraído automaticamente (${extractedText.length} chars): ${extractedText.substring(0, 200)}...`);
+      console.log(
+        `🔍 Texto extraído automaticamente (${
+          extractedText.length
+        } chars): ${extractedText.substring(0, 200)}...`
+      );
       return extractedText.trim();
-
     } catch (error) {
-      console.error('Erro na extração automática de texto:', error);
-      return '';
+      console.error("Erro na extração automática de texto:", error);
+      return "";
     }
   }
-
-
 
   // Criar documento (upload)
   app.post("/api/documents", async (req, res) => {
@@ -901,7 +1129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("❌ Validação falhou:", result.error.errors);
         return res.status(400).json({
           message: "Dados do documento inválidos",
-          errors: result.error.errors
+          errors: result.error.errors,
         });
       }
 
@@ -909,15 +1137,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // CATEGORIZAÇÃO AUTOMÁTICA baseada no tipo de arquivo
       let automaticCategory = null;
-      let fileName = '';
-      let mimeType = '';
+      let fileName = "";
+      let mimeType = "";
 
       // Tentar extrair informações do arquivo do conteúdo JSON
       if (result.data.content) {
         try {
           const contentObj = JSON.parse(result.data.content);
-          fileName = contentObj.fileName || contentObj.fileInfo?.originalName || result.data.title || '';
-          mimeType = contentObj.fileType || contentObj.fileInfo?.mimeType || '';
+          fileName =
+            contentObj.fileName ||
+            contentObj.fileInfo?.originalName ||
+            result.data.title ||
+            "";
+          mimeType = contentObj.fileType || contentObj.fileInfo?.mimeType || "";
 
           // Aplicar categorização automática
           automaticCategory = getAutomaticCategory(fileName, mimeType);
@@ -926,34 +1158,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fileName,
             mimeType,
             originalCategory: result.data.category,
-            automaticCategory
+            automaticCategory,
           });
 
           // Sobrescrever categoria com categorização automática
           result.data.category = automaticCategory;
-
         } catch (parseError) {
-          console.warn("⚠️ Erro ao parsear conteúdo para categorização:", parseError);
+          console.warn(
+            "⚠️ Erro ao parsear conteúdo para categorização:",
+            parseError
+          );
           // Se não conseguir parsear, usar categoria padrão ou manual
           if (!result.data.category) {
-            result.data.category = 'Outros';
+            result.data.category = "Outros";
           }
         }
       } else {
         // Se não tem conteúdo JSON, tentar determinar pela extensão do título
-        fileName = result.data.title || '';
+        fileName = result.data.title || "";
         automaticCategory = getAutomaticCategory(fileName);
 
-        if (automaticCategory !== 'Outros') {
+        if (automaticCategory !== "Outros") {
           result.data.category = automaticCategory;
-          console.log(`🎯 Categoria detectada pelo título: ${automaticCategory}`);
+          console.log(
+            `🎯 Categoria detectada pelo título: ${automaticCategory}`
+          );
         } else if (!result.data.category) {
-          result.data.category = 'Outros';
+          result.data.category = "Outros";
         }
       }
 
       // Extrair texto automaticamente antes de salvar
-      const extractedText = await extractTextFromDocument(result.data.content || '{}', result.data.title);
+      const extractedText = await extractTextFromDocument(
+        result.data.content || "{}",
+        result.data.title
+      );
 
       // Adicionar texto extraído ao conteúdo se foi gerado
       if (extractedText && result.data.content) {
@@ -961,19 +1200,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const contentObj = JSON.parse(result.data.content);
           contentObj.extractedText = extractedText;
           result.data.content = JSON.stringify(contentObj);
-          console.log("✅ Texto extraído adicionado automaticamente ao documento");
+          console.log(
+            "✅ Texto extraído adicionado automaticamente ao documento"
+          );
         } catch (e) {
-          console.warn("⚠️ Não foi possível adicionar texto extraído ao conteúdo JSON");
+          console.warn(
+            "⚠️ Não foi possível adicionar texto extraído ao conteúdo JSON"
+          );
         }
       }
 
       const document = await storage.createDocument(result.data);
-      console.log(`✅ Documento criado com sucesso na categoria "${document.category}":`, document);
+      console.log(
+        `✅ Documento criado com sucesso na categoria "${document.category}":`,
+        document
+      );
       res.status(201).json(document);
     } catch (error: any) {
       console.error("❌ Erro ao criar documento:", error);
       console.error("❌ Stack trace:", error?.stack);
-      res.status(500).json({ message: "Erro interno do servidor", error: error?.message || 'Erro desconhecido' });
+      res.status(500).json({
+        message: "Erro interno do servidor",
+        error: error?.message || "Erro desconhecido",
+      });
     }
   });
 
@@ -992,28 +1241,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📄 Documento encontrado:`, {
         id: document.id,
         title: document.title,
-        contentLength: document.content?.length || 0
+        contentLength: document.content?.length || 0,
       });
 
       // Registrar visualização no analytics
       const userData = AnalyticsTracker.getUserDataFromRequest(req);
       await AnalyticsTracker.trackDocumentAction({
         document_id: id,
-        action_type: 'view',
-        referrer: req.headers.referer || '/document/' + id,
-        ...userData
+        action_type: "view",
+        referrer: req.headers.referer || "/document/" + id,
+        ...userData,
       });
 
       // Tentar obter dados do arquivo do Supabase Storage
       let documentDetails = null;
       try {
-        if (document.content && typeof document.content === 'string') {
-          if (document.content.startsWith('{')) {
+        if (document.content && typeof document.content === "string") {
+          if (document.content.startsWith("{")) {
             documentDetails = JSON.parse(document.content);
           }
         }
       } catch (error) {
-        console.warn('Erro ao parsear dados do documento:', error);
+        console.warn("Erro ao parsear dados do documento:", error);
       }
 
       console.log(`📋 Document Details:`, {
@@ -1021,103 +1270,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supabaseUrl: documentDetails?.supabaseUrl,
         fileName: documentDetails?.fileInfo?.originalName,
         originalName: documentDetails?.originalName,
-        mimeType: documentDetails?.mimeType
+        mimeType: documentDetails?.mimeType,
       });
 
       // Tentar diferentes formas de localizar o arquivo
       let supabaseUrl = documentDetails?.supabaseUrl;
       const fileInfo = documentDetails?.fileInfo;
-      let fileName = fileInfo?.originalName || documentDetails?.originalName || documentDetails?.fileName || document.title;
+      let fileName =
+        fileInfo?.originalName ||
+        documentDetails?.originalName ||
+        documentDetails?.fileName ||
+        document.title;
 
       // Se não tem supabaseUrl mas tem originalName, tentar localizar o arquivo
       if (!supabaseUrl && documentDetails?.originalName) {
-        console.log('🔍 Tentando localizar arquivo por originalName:', documentDetails.originalName);
+        console.log(
+          "🔍 Tentando localizar arquivo por originalName:",
+          documentDetails.originalName
+        );
 
         // Para arquivos PDF, tentar localizar no bucket documents
-        if (documentDetails?.mimeType?.includes('pdf')) {
+        if (documentDetails?.mimeType?.includes("pdf")) {
           const possiblePaths = [
             documentDetails.originalName,
-            documentDetails.originalName.replace(/\s+/g, '_'),
-            documentDetails.originalName.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+            documentDetails.originalName.replace(/\s+/g, "_"),
+            documentDetails.originalName.replace(/[^a-zA-Z0-9.\-_]/g, "_"),
           ];
 
           // Testar cada possível caminho
           for (const testPath of possiblePaths) {
             try {
-              const { supabase } = await import('./supabase');
-              const { data: testData, error: testError } = await supabase.storage
-                .from('documents')
-                .download(testPath);
+              const { supabase } = await import("./supabase");
+              const { data: testData, error: testError } =
+                await supabase.storage.from("documents").download(testPath);
 
               if (!testError && testData) {
-                console.log('✅ Arquivo encontrado com caminho:', testPath);
+                console.log("✅ Arquivo encontrado com caminho:", testPath);
                 supabaseUrl = testPath;
                 fileName = testPath;
                 break;
               }
             } catch (testError) {
-              console.log('❌ Tentativa falhou para:', testPath);
+              console.log("❌ Tentativa falhou para:", testPath);
             }
           }
         }
       }
 
       if (supabaseUrl) {
-        const { supabase } = await import('./supabase');
+        const { supabase } = await import("./supabase");
 
-        console.log('🔍 Tentando baixar arquivo para view:');
-        console.log('  - Supabase URL:', supabaseUrl);
-        console.log('  - File Name:', fileName);
-        console.log('  - Document ID:', id);
+        console.log("🔍 Tentando baixar arquivo para view:");
+        console.log("  - Supabase URL:", supabaseUrl);
+        console.log("  - File Name:", fileName);
+        console.log("  - Document ID:", id);
 
         // Detectar bucket correto baseado no tipo de arquivo ou categoria
-        let bucketName = 'documents'; // padrão
+        let bucketName = "documents"; // padrão
 
         if (documentDetails?.fileType) {
           const fileType = documentDetails.fileType.toLowerCase();
-          if (fileType.includes('csv') || fileType.includes('excel') || fileType.includes('spreadsheet')) {
-            bucketName = 'spreadsheets';
-          } else if (fileType.includes('pdf')) {
-            bucketName = 'documents';
-          } else if (fileType.includes('word') || fileType.includes('document')) {
-            bucketName = 'documents';
-          } else if (fileType.includes('powerpoint') || fileType.includes('presentation')) {
-            bucketName = 'presentations';
-          } else if (fileType.includes('image')) {
-            bucketName = 'images';
-          } else if (fileType.includes('video')) {
-            bucketName = 'videos';
-          } else if (fileType.includes('audio')) {
-            bucketName = 'audio';
-          } else if (fileType.includes('text') || fileType.includes('plain')) {
-            bucketName = 'documents';
-          } else if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('7z')) {
-            bucketName = 'documents'; // arquivos compactados no bucket principal
+          if (
+            fileType.includes("csv") ||
+            fileType.includes("excel") ||
+            fileType.includes("spreadsheet")
+          ) {
+            bucketName = "spreadsheets";
+          } else if (fileType.includes("pdf")) {
+            bucketName = "documents";
+          } else if (
+            fileType.includes("word") ||
+            fileType.includes("document")
+          ) {
+            bucketName = "documents";
+          } else if (
+            fileType.includes("powerpoint") ||
+            fileType.includes("presentation")
+          ) {
+            bucketName = "presentations";
+          } else if (fileType.includes("image")) {
+            bucketName = "images";
+          } else if (fileType.includes("video")) {
+            bucketName = "videos";
+          } else if (fileType.includes("audio")) {
+            bucketName = "audio";
+          } else if (fileType.includes("text") || fileType.includes("plain")) {
+            bucketName = "documents";
+          } else if (
+            fileType.includes("zip") ||
+            fileType.includes("rar") ||
+            fileType.includes("7z")
+          ) {
+            bucketName = "documents"; // arquivos compactados no bucket principal
           }
         }
 
         // Verificar categoria como fallback
         if (document.category) {
           const category = document.category.toLowerCase();
-          if (category.includes('planilha') || category.includes('excel')) {
-            bucketName = 'spreadsheets';
+          if (category.includes("planilha") || category.includes("excel")) {
+            bucketName = "spreadsheets";
           }
         }
 
-        console.log('🪣 Bucket detectado:', bucketName, 'para tipo:', documentDetails?.fileType);
+        console.log(
+          "🪣 Bucket detectado:",
+          bucketName,
+          "para tipo:",
+          documentDetails?.fileType
+        );
 
         const { data, error } = await supabase.storage
           .from(bucketName)
           .download(supabaseUrl);
 
         if (error) {
-          console.log('❌ Erro no Supabase VIEW:', error);
-          console.log('❌ URL do arquivo:', supabaseUrl);
+          console.log("❌ Erro no Supabase VIEW:", error);
+          console.log("❌ URL do arquivo:", supabaseUrl);
           return res.status(404).json({
             error: "Arquivo não encontrado no Supabase Storage",
             details: error.message,
             supabaseUrl: supabaseUrl,
-            suggestion: "O arquivo pode ter sido corrompido ou removido. Tente fazer upload novamente."
+            suggestion:
+              "O arquivo pode ter sido corrompido ou removido. Tente fazer upload novamente.",
           });
         }
 
@@ -1126,54 +1401,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Determinar o tipo MIME correto
-        const mimeType = data.type || fileInfo?.mimeType || 'application/pdf';
-        const isImage = mimeType.startsWith('image/');
+        const mimeType = data.type || fileInfo?.mimeType || "application/pdf";
+        const isImage = mimeType.startsWith("image/");
 
-        console.log('✅ VIEW - Servindo arquivo:', fileName, 'Tipo:', mimeType);
+        console.log("✅ VIEW - Servindo arquivo:", fileName, "Tipo:", mimeType);
 
         // Converter para buffer primeiro para validação
         const arrayBuffer = await data.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
         // Verificar se é PDF válido quando o tipo for PDF
-        if (mimeType.includes('pdf')) {
-          const header = buffer.toString('ascii', 0, 8);
-          if (!header.startsWith('%PDF')) {
-            console.error('❌ Arquivo não é PDF válido. Header:', header);
+        if (mimeType.includes("pdf")) {
+          const header = buffer.toString("ascii", 0, 8);
+          if (!header.startsWith("%PDF")) {
+            console.error("❌ Arquivo não é PDF válido. Header:", header);
             return res.status(404).json({
               error: "Arquivo não é PDF válido",
               details: `Header encontrado: ${header}`,
-              fileName: fileName
+              fileName: fileName,
             });
           }
         }
 
         // Configurar headers apropriados para visualização inline (sem download forçado)
-        res.setHeader('Content-Type', mimeType);
-        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Content-Length', buffer.length.toString());
+        res.setHeader("Content-Type", mimeType);
+        res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Content-Length", buffer.length.toString());
 
         // Servir arquivo como binary buffer
         res.send(buffer);
       } else {
         // Documento sem arquivo físico - explicar a situação
-        console.log('❌ Documento sem arquivo físico no Supabase Storage');
-        console.log('  - Documento:', document.title);
-        console.log('  - ID:', id);
-        console.log('  - Original Name:', documentDetails?.originalName || 'Não definido');
+        console.log("❌ Documento sem arquivo físico no Supabase Storage");
+        console.log("  - Documento:", document.title);
+        console.log("  - ID:", id);
+        console.log(
+          "  - Original Name:",
+          documentDetails?.originalName || "Não definido"
+        );
 
         res.status(404).json({
           error: "Arquivo físico não encontrado",
-          details: "Este documento foi cadastrado mas o arquivo não foi enviado para o armazenamento.",
-          originalName: documentDetails?.originalName || 'Arquivo não especificado',
-          suggestion: "Anexe um novo arquivo usando o botão 'Anexar Documento' ou 'Editar'."
+          details:
+            "Este documento foi cadastrado mas o arquivo não foi enviado para o armazenamento.",
+          originalName:
+            documentDetails?.originalName || "Arquivo não especificado",
+          suggestion:
+            "Anexe um novo arquivo usando o botão 'Anexar Documento' ou 'Editar'.",
         });
       }
     } catch (error: any) {
-      console.error('❌ Erro na rota view:', error);
+      console.error("❌ Erro na rota view:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -1185,68 +1466,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🖼️ [PRODUÇÃO] Servindo foto: ${fileName}`);
 
       // Headers para produção - resolver CORS e cache
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+      );
 
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import("./supabase");
 
       // Tentar buscar a imagem no bucket de imagens
       const { data, error } = await supabase.storage
-        .from('images')
+        .from("images")
         .download(fileName);
 
       if (error) {
-        console.log('❌ Erro no bucket images:', error.message);
+        console.log("❌ Erro no bucket images:", error.message);
         // Tentar no bucket documents como fallback
-        const { data: dataFallback, error: errorFallback } = await supabase.storage
-          .from('documents')
-          .download(fileName);
+        const { data: dataFallback, error: errorFallback } =
+          await supabase.storage.from("documents").download(fileName);
 
         if (errorFallback) {
-          console.log('❌ Erro no bucket documents:', errorFallback.message);
+          console.log("❌ Erro no bucket documents:", errorFallback.message);
 
           // FALLBACK ESPECIAL PARA PRODUÇÃO - URL direta do Supabase
           const directUrl = `https://fbqocpozjmuzrdeacktb.supabase.co/storage/v1/object/public/images/${fileName}`;
-          console.log('🔄 Tentando URL direta:', directUrl);
+          console.log("🔄 Tentando URL direta:", directUrl);
 
           try {
             const response = await fetch(directUrl);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
-              const mimeType = response.headers.get('content-type') || 'image/jpeg';
+              const mimeType =
+                response.headers.get("content-type") || "image/jpeg";
 
-              console.log('✅ [PRODUÇÃO] Foto carregada via URL direta:', fileName);
+              console.log(
+                "✅ [PRODUÇÃO] Foto carregada via URL direta:",
+                fileName
+              );
 
-              res.setHeader('Content-Type', mimeType);
-              res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-              res.setHeader('Cache-Control', 'public, max-age=3600');
+              res.setHeader("Content-Type", mimeType);
+              res.setHeader(
+                "Content-Disposition",
+                `inline; filename="${fileName}"`
+              );
+              res.setHeader("Cache-Control", "public, max-age=3600");
 
               return res.send(Buffer.from(buffer));
             }
           } catch (fetchError) {
-            console.log('❌ Erro no fetch direto:', fetchError);
+            console.log("❌ Erro no fetch direto:", fetchError);
           }
 
           return res.status(404).json({
             error: "Foto não encontrada",
             fileName: fileName,
-            details: "A imagem pode ter sido removida ou o sistema está em manutenção.",
-            environment: process.env.NODE_ENV || 'development'
+            details:
+              "A imagem pode ter sido removida ou o sistema está em manutenção.",
+            environment: process.env.NODE_ENV || "development",
           });
         }
 
         if (!dataFallback) {
-          return res.status(404).json({ error: "Foto não encontrada no fallback" });
+          return res
+            .status(404)
+            .json({ error: "Foto não encontrada no fallback" });
         }
 
         // Usar dados do fallback
-        const mimeType = dataFallback.type || 'image/jpeg';
-        console.log('✅ [PRODUÇÃO] Servindo foto do bucket documents:', fileName, 'Tipo:', mimeType);
+        const mimeType = dataFallback.type || "image/jpeg";
+        console.log(
+          "✅ [PRODUÇÃO] Servindo foto do bucket documents:",
+          fileName,
+          "Tipo:",
+          mimeType
+        );
 
-        res.setHeader('Content-Type', mimeType);
-        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader("Content-Type", mimeType);
+        res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+        res.setHeader("Cache-Control", "public, max-age=3600");
 
         const arrayBuffer = await dataFallback.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -1258,27 +1556,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Determinar tipo MIME da imagem
-      const mimeType = data.type || 'image/jpeg';
-      console.log('✅ [PRODUÇÃO] Servindo foto do bucket images:', fileName, 'Tipo:', mimeType);
+      const mimeType = data.type || "image/jpeg";
+      console.log(
+        "✅ [PRODUÇÃO] Servindo foto do bucket images:",
+        fileName,
+        "Tipo:",
+        mimeType
+      );
 
       // Configurar headers para produção
-      res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.setHeader("X-Content-Type-Options", "nosniff");
 
       const arrayBuffer = await data.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       res.send(buffer);
-
     } catch (error: any) {
-      console.error('❌ [PRODUÇÃO] Erro ao servir foto:', error);
-      console.error('❌ [PRODUÇÃO] Stack:', error.stack);
+      console.error("❌ [PRODUÇÃO] Erro ao servir foto:", error);
+      console.error("❌ [PRODUÇÃO] Stack:", error.stack);
       res.status(500).json({
-        error: 'Erro interno do servidor',
-        details: 'Problema ao carregar imagem em produção',
+        error: "Erro interno do servidor",
+        details: "Problema ao carregar imagem em produção",
         fileName: req.params.fileName,
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || "development",
       });
     }
   });
@@ -1293,87 +1595,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Documento não encontrado" });
       }
 
-      console.log('📥 DOWNLOAD - Processando documento:', document.title);
+      console.log("📥 DOWNLOAD - Processando documento:", document.title);
 
       // Registrar download no analytics
       const userData = AnalyticsTracker.getUserDataFromRequest(req);
       await AnalyticsTracker.trackDocumentAction({
         document_id: id,
-        action_type: 'download',
-        referrer: req.headers.referer || '/document/' + id,
-        ...userData
+        action_type: "download",
+        referrer: req.headers.referer || "/document/" + id,
+        ...userData,
       });
 
       // Tentar obter dados do arquivo do Supabase Storage
       let documentDetails = null;
       try {
-        const documentDetailsRaw = JSON.parse(document.content || '{}');
+        const documentDetailsRaw = JSON.parse(document.content || "{}");
         documentDetails = documentDetailsRaw;
-        console.log('📥 DOWNLOAD - Document Details:', {
+        console.log("📥 DOWNLOAD - Document Details:", {
           hasDetails: !!documentDetails,
           supabaseUrl: documentDetails?.supabaseUrl,
           fileName: documentDetails?.fileName,
           originalName: documentDetails?.originalName,
-          mimeType: documentDetails?.mimeType
+          mimeType: documentDetails?.mimeType,
         });
       } catch (parseError) {
-        console.log('📥 DOWNLOAD - Erro ao fazer parse do content:', parseError);
+        console.log(
+          "📥 DOWNLOAD - Erro ao fazer parse do content:",
+          parseError
+        );
       }
 
       if (documentDetails?.supabaseUrl && documentDetails?.fileName) {
-        const { supabase } = await import('./supabase');
+        const { supabase } = await import("./supabase");
         const supabaseUrl = documentDetails.supabaseUrl;
         const fileName = documentDetails.fileName;
         const originalName = documentDetails.originalName || fileName;
         const mimeType = documentDetails.mimeType;
 
-        console.log('📥 DOWNLOAD - Tentando baixar do Supabase:', {
+        console.log("📥 DOWNLOAD - Tentando baixar do Supabase:", {
           supabaseUrl,
           fileName,
           originalName,
-          mimeType
+          mimeType,
         });
 
         // Detectar bucket correto baseado no tipo de arquivo
-        let bucketName = 'documents'; // padrão
+        let bucketName = "documents"; // padrão
 
         // Verificar se é foto digitalizada (PNG que vira PDF)
-        const isDigitalizedPhoto = documentDetails?.originalFileType?.includes('image/png') ||
-                                 documentDetails?.originalFileType?.includes('image/jpeg') ||
-                                 documentDetails?.originalFileType?.includes('image/jpg');
+        const isDigitalizedPhoto =
+          documentDetails?.originalFileType?.includes("image/png") ||
+          documentDetails?.originalFileType?.includes("image/jpeg") ||
+          documentDetails?.originalFileType?.includes("image/jpg");
 
         if (isDigitalizedPhoto) {
-          bucketName = 'images';
-          console.log('📷 DOWNLOAD - Foto digitalizada detectada, usando bucket images');
+          bucketName = "images";
+          console.log(
+            "📷 DOWNLOAD - Foto digitalizada detectada, usando bucket images"
+          );
         } else if (documentDetails?.mimeType) {
           const mimeType = documentDetails.mimeType.toLowerCase();
-          if (mimeType.includes('image/')) {
-            bucketName = 'images';
-          } else if (mimeType.includes('video/')) {
-            bucketName = 'videos';
-          } else if (mimeType.includes('audio/')) {
-            bucketName = 'audio';
-          } else if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
-            bucketName = 'spreadsheets';
-          } else if (mimeType.includes('pdf') || mimeType.includes('document')) {
-            bucketName = 'documents';
+          if (mimeType.includes("image/")) {
+            bucketName = "images";
+          } else if (mimeType.includes("video/")) {
+            bucketName = "videos";
+          } else if (mimeType.includes("audio/")) {
+            bucketName = "audio";
+          } else if (
+            mimeType.includes("spreadsheet") ||
+            mimeType.includes("excel")
+          ) {
+            bucketName = "spreadsheets";
+          } else if (
+            mimeType.includes("pdf") ||
+            mimeType.includes("document")
+          ) {
+            bucketName = "documents";
           }
         }
 
         // Verificar categoria como fallback
         if (document.category) {
           const category = document.category.toLowerCase();
-          if (category.includes('planilha') || category.includes('excel')) {
-            bucketName = 'spreadsheets';
-          } else if (category.includes('imagem') || category.includes('foto')) {
-            bucketName = 'images';
+          if (category.includes("planilha") || category.includes("excel")) {
+            bucketName = "spreadsheets";
+          } else if (category.includes("imagem") || category.includes("foto")) {
+            bucketName = "images";
           }
         }
 
-        console.log('📥 DOWNLOAD - Bucket detectado:', bucketName);
+        console.log("📥 DOWNLOAD - Bucket detectado:", bucketName);
 
         // Tentar múltiplos buckets se necessário
-        const bucketsToTry = [bucketName, 'documents', 'images'];
+        const bucketsToTry = [bucketName, "documents", "images"];
         let downloadSuccess = false;
         let downloadData = null;
 
@@ -1391,24 +1705,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`✅ DOWNLOAD - Sucesso no bucket: ${bucket}`);
               break;
             } else {
-              console.log(`❌ DOWNLOAD - Erro no bucket ${bucket}:`, error?.message);
+              console.log(
+                `❌ DOWNLOAD - Erro no bucket ${bucket}:`,
+                error?.message
+              );
             }
           } catch (bucketError) {
-            console.log(`❌ DOWNLOAD - Erro ao tentar bucket ${bucket}:`, bucketError);
+            console.log(
+              `❌ DOWNLOAD - Erro ao tentar bucket ${bucket}:`,
+              bucketError
+            );
           }
         }
 
         if (!downloadSuccess || !downloadData) {
-          throw new Error('Arquivo não encontrado em nenhum bucket do Supabase Storage');
+          throw new Error(
+            "Arquivo não encontrado em nenhum bucket do Supabase Storage"
+          );
         }
 
         const data = downloadData;
 
         // Configurar headers para download com nome original e tipo correto
-        const finalMimeType = mimeType || 'application/octet-stream';
-        res.setHeader('Content-Type', finalMimeType);
-        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-        res.setHeader('Cache-Control', 'private, max-age=0');
+        const finalMimeType = mimeType || "application/octet-stream";
+        res.setHeader("Content-Type", finalMimeType);
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${originalName}"`
+        );
+        res.setHeader("Cache-Control", "private, max-age=0");
 
         // Verificar se os dados são válidos
         const arrayBuffer = await data.arrayBuffer();
@@ -1416,16 +1741,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Verificar se o arquivo não está vazio
         if (buffer.length === 0) {
-          throw new Error('Arquivo está vazio');
+          throw new Error("Arquivo está vazio");
         }
 
         // Log detalhado para debug
-        console.log('✅ DOWNLOAD - Arquivo servido:', {
+        console.log("✅ DOWNLOAD - Arquivo servido:", {
           originalName,
           mimeType: finalMimeType,
           size: buffer.length,
           bucket: bucketName,
-          supabaseUrl: supabaseUrl
+          supabaseUrl: supabaseUrl,
         });
 
         res.send(buffer);
@@ -1433,15 +1758,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fallback: download com informações do banco de dados
-      console.log('📥 DOWNLOAD - Usando fallback para arquivo sem Supabase');
-      const fallbackContent = `Título: ${document.title}\n\nDescrição: ${document.description || ''}\n\nConteúdo:\n${document.content || ''}\n\nAutor: ${document.author || ''}\nCategoria: ${document.category || ''}\nTags: ${(document.tags || []).join(', ')}\n\nCriado em: ${document.createdAt?.toISOString() || new Date().toISOString()}`;
+      console.log("📥 DOWNLOAD - Usando fallback para arquivo sem Supabase");
+      const fallbackContent = `Título: ${document.title}\n\nDescrição: ${
+        document.description || ""
+      }\n\nConteúdo:\n${document.content || ""}\n\nAutor: ${
+        document.author || ""
+      }\nCategoria: ${document.category || ""}\nTags: ${(
+        document.tags || []
+      ).join(", ")}\n\nCriado em: ${
+        document.createdAt?.toISOString() || new Date().toISOString()
+      }`;
 
-      res.setHeader('Content-Disposition', `attachment; filename="${document.title}.txt"`);
-      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${document.title}.txt"`
+      );
+      res.setHeader("Content-Type", "text/plain");
       res.send(fallbackContent);
-
     } catch (error: any) {
-      console.error('❌ DOWNLOAD - Erro:', error);
+      console.error("❌ DOWNLOAD - Erro:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -1459,68 +1794,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Tentar obter dados do arquivo do Supabase Storage
       let documentDetails = null;
       try {
-        documentDetails = JSON.parse(document.content || '{}');
+        documentDetails = JSON.parse(document.content || "{}");
       } catch (error) {
-        console.error('❌ Erro ao parsear conteúdo do documento:', error);
-        return res.status(500).json({ error: "Erro ao processar conteúdo do documento" });
+        console.error("❌ Erro ao parsear conteúdo do documento:", error);
+        return res
+          .status(500)
+          .json({ error: "Erro ao processar conteúdo do documento" });
       }
 
       // Verificar se tem arquivo físico no Supabase
       if (documentDetails.supabaseUrl) {
-        const response = await fetch(`https://xwrnhpqzbhwiqasuytwjo.supabase.co/storage/v1/object/public/documents/${documentDetails.supabaseUrl}`);
+        const response = await fetch(
+          `https://xwrnhpqzbhwiqasuytwjo.supabase.co/storage/v1/object/public/documents/${documentDetails.supabaseUrl}`
+        );
 
         if (response.ok) {
           const content = await response.text();
 
           // Retornar conteúdo baseado no tipo de arquivo
-          if (documentDetails.fileType?.includes('pdf')) {
+          if (documentDetails.fileType?.includes("pdf")) {
             // Para PDFs, retornar informações básicas
             res.json({
-              type: 'pdf',
-              content: 'PDF content (rendered via iframe)',
-              fileName: documentDetails.fileName || 'documento.pdf',
-              fileType: documentDetails.fileType
+              type: "pdf",
+              content: "PDF content (rendered via iframe)",
+              fileName: documentDetails.fileName || "documento.pdf",
+              fileType: documentDetails.fileType,
             });
-          } else if (documentDetails.fileType?.includes('word') || documentDetails.fileType?.includes('document')) {
+          } else if (
+            documentDetails.fileType?.includes("word") ||
+            documentDetails.fileType?.includes("document")
+          ) {
             // Para documentos Word, processar conteúdo
-            const processedContent = await extractTextFromDocument(content, documentDetails.fileName);
+            const processedContent = await extractTextFromDocument(
+              content,
+              documentDetails.fileName
+            );
             res.json({
-              type: 'word',
+              type: "word",
               content: processedContent,
-              fileName: documentDetails.fileName || 'documento.docx',
-              fileType: documentDetails.fileType
+              fileName: documentDetails.fileName || "documento.docx",
+              fileType: documentDetails.fileType,
             });
-          } else if (documentDetails.fileType?.includes('text') || documentDetails.fileType?.includes('plain')) {
+          } else if (
+            documentDetails.fileType?.includes("text") ||
+            documentDetails.fileType?.includes("plain")
+          ) {
             // Para arquivos de texto simples
             res.json({
-              type: 'text',
+              type: "text",
               content: content,
-              fileName: documentDetails.fileName || 'documento.txt',
-              fileType: documentDetails.fileType
+              fileName: documentDetails.fileName || "documento.txt",
+              fileType: documentDetails.fileType,
             });
           } else {
             // Para outros tipos de arquivo
             res.json({
-              type: 'other',
+              type: "other",
               content: content,
-              fileName: documentDetails.fileName || 'documento',
-              fileType: documentDetails.fileType
+              fileName: documentDetails.fileName || "documento",
+              fileType: documentDetails.fileType,
             });
           }
         } else {
-          res.status(404).json({ error: "Arquivo físico não encontrado no storage" });
+          res
+            .status(404)
+            .json({ error: "Arquivo físico não encontrado no storage" });
         }
       } else {
         // Fallback para documentos sem arquivo físico
         res.json({
-          type: 'text',
-          content: document.content || 'Conteúdo não disponível',
-          fileName: document.title || 'documento',
-          fileType: 'text/plain'
+          type: "text",
+          content: document.content || "Conteúdo não disponível",
+          fileName: document.title || "documento",
+          fileType: "text/plain",
         });
       }
     } catch (error: any) {
-      console.error('❌ Erro na rota content:', error);
+      console.error("❌ Erro na rota content:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -1528,8 +1878,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota especial para servir PDFs - deve vir ANTES do Vite middleware
   app.get("/pdf/:id", async (req, res) => {
     // Forçar resposta antes do Vite interceptar
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    console.log(`[API] Rota de visualização acessada: /api/documents/${req.params.id}/view`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    console.log(
+      `[API] Rota de visualização acessada: /api/documents/${req.params.id}/view`
+    );
     try {
       const id = parseInt(req.params.id);
       const document = await storage.getDocumentById(id);
@@ -1541,13 +1893,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Tentar obter dados do arquivo do Supabase Storage
       let documentDetails = null;
       try {
-        if (document.content && typeof document.content === 'string') {
-          if (document.content.startsWith('{')) {
+        if (document.content && typeof document.content === "string") {
+          if (document.content.startsWith("{")) {
             documentDetails = JSON.parse(document.content);
           }
         }
       } catch (error) {
-        console.warn('Erro ao parsear dados do documento:', error);
+        console.warn("Erro ao parsear dados do documento:", error);
       }
 
       // Verificar se existe URL do Supabase
@@ -1558,40 +1910,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (supabaseUrl) {
         try {
           // Buscar arquivo do Supabase Storage
-          const { supabase } = await import('./supabase');
+          const { supabase } = await import("./supabase");
 
           console.log(`Tentando buscar arquivo do Supabase: ${supabaseUrl}`);
 
           // Detectar bucket correto baseado no tipo de arquivo
-          let bucketName = 'documents'; // padrão
+          let bucketName = "documents"; // padrão
 
           // Verificar se é foto digitalizada (PNG que vira PDF)
-          const isDigitalizedPhoto = documentDetails?.originalFileType?.includes('image/png') ||
-                                   documentDetails?.originalFileType?.includes('image/jpeg') ||
-                                   documentDetails?.originalFileType?.includes('image/jpg');
+          const isDigitalizedPhoto =
+            documentDetails?.originalFileType?.includes("image/png") ||
+            documentDetails?.originalFileType?.includes("image/jpeg") ||
+            documentDetails?.originalFileType?.includes("image/jpg");
 
           if (isDigitalizedPhoto) {
-            bucketName = 'images';
-            console.log('📷 VIEW - Foto digitalizada detectada, usando bucket images');
+            bucketName = "images";
+            console.log(
+              "📷 VIEW - Foto digitalizada detectada, usando bucket images"
+            );
           } else if (documentDetails?.mimeType) {
             const mimeType = documentDetails.mimeType.toLowerCase();
-            if (mimeType.includes('image/')) {
-              bucketName = 'images';
-            } else if (mimeType.includes('video/')) {
-              bucketName = 'videos';
-            } else if (mimeType.includes('audio/')) {
-              bucketName = 'audio';
-            } else if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
-              bucketName = 'spreadsheets';
-            } else if (mimeType.includes('pdf') || mimeType.includes('document')) {
-              bucketName = 'documents';
+            if (mimeType.includes("image/")) {
+              bucketName = "images";
+            } else if (mimeType.includes("video/")) {
+              bucketName = "videos";
+            } else if (mimeType.includes("audio/")) {
+              bucketName = "audio";
+            } else if (
+              mimeType.includes("spreadsheet") ||
+              mimeType.includes("excel")
+            ) {
+              bucketName = "spreadsheets";
+            } else if (
+              mimeType.includes("pdf") ||
+              mimeType.includes("document")
+            ) {
+              bucketName = "documents";
             }
           }
 
-          console.log('🪣 VIEW - Bucket detectado:', bucketName, 'para tipo:', documentDetails?.mimeType);
+          console.log(
+            "🪣 VIEW - Bucket detectado:",
+            bucketName,
+            "para tipo:",
+            documentDetails?.mimeType
+          );
 
           // Tentar múltiplos buckets se necessário
-          const bucketsToTry = [bucketName, 'documents', 'images'];
+          const bucketsToTry = [bucketName, "documents", "images"];
           let viewSuccess = false;
           let viewData = null;
 
@@ -1609,92 +1975,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`✅ VIEW - Sucesso no bucket: ${bucket}`);
                 break;
               } else {
-                console.log(`❌ VIEW - Erro no bucket ${bucket}:`, error?.message);
+                console.log(
+                  `❌ VIEW - Erro no bucket ${bucket}:`,
+                  error?.message
+                );
               }
             } catch (bucketError) {
-              console.log(`❌ VIEW - Erro ao tentar bucket ${bucket}:`, bucketError);
+              console.log(
+                `❌ VIEW - Erro ao tentar bucket ${bucket}:`,
+                bucketError
+              );
             }
           }
 
           if (!viewSuccess || !viewData) {
-            throw new Error('Arquivo não encontrado em nenhum bucket do Supabase Storage');
+            throw new Error(
+              "Arquivo não encontrado em nenhum bucket do Supabase Storage"
+            );
           }
 
           const data = viewData;
 
           // Determinar tipo de conteúdo
-          const mimeType = fileInfo?.mimeType || documentDetails?.fileType || 'application/pdf';
+          const mimeType =
+            fileInfo?.mimeType ||
+            documentDetails?.fileType ||
+            "application/pdf";
 
-          console.log(`Servindo arquivo: ${fileName}, tipo: ${mimeType}, tamanho: ${data.size} bytes`);
+          console.log(
+            `Servindo arquivo: ${fileName}, tipo: ${mimeType}, tamanho: ${data.size} bytes`
+          );
 
           // Configurar headers para visualização inline com CORS permissivo
-          res.setHeader('Content-Type', mimeType);
-          res.setHeader('Content-Disposition', `inline; filename="${fileName || document.title}"`);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader("Content-Type", mimeType);
+          res.setHeader(
+            "Content-Disposition",
+            `inline; filename="${fileName || document.title}"`
+          );
+          res.setHeader("Cache-Control", "public, max-age=3600");
 
           // CORS Headers para permitir acesso de qualquer origem
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-          res.setHeader('Access-Control-Allow-Credentials', 'true');
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+          res.setHeader(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization, X-Requested-With"
+          );
+          res.setHeader("Access-Control-Allow-Credentials", "true");
 
           // Headers de segurança mais permissivos
-          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-          res.setHeader('X-Content-Type-Options', 'nosniff');
-          res.setHeader('Referrer-Policy', 'same-origin');
-          res.setHeader('Content-Length', data.size.toString());
+          res.setHeader("X-Frame-Options", "SAMEORIGIN");
+          res.setHeader("X-Content-Type-Options", "nosniff");
+          res.setHeader("Referrer-Policy", "same-origin");
+          res.setHeader("Content-Length", data.size.toString());
 
           // Converter blob para buffer e enviar
           const arrayBuffer = await data.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
           res.send(buffer);
         } catch (supabaseError: any) {
-          console.error('Erro completo ao acessar Supabase Storage:', supabaseError);
+          console.error(
+            "Erro completo ao acessar Supabase Storage:",
+            supabaseError
+          );
 
           // Tentar buscar a URL pública do arquivo
           try {
-            const { supabase } = await import('./supabase');
+            const { supabase } = await import("./supabase");
             const { data: publicUrl } = supabase.storage
-              .from('documents')
+              .from("documents")
               .getPublicUrl(supabaseUrl);
 
             if (publicUrl && publicUrl.publicUrl) {
-              console.log('Redirecionando para URL pública:', publicUrl.publicUrl);
+              console.log(
+                "Redirecionando para URL pública:",
+                publicUrl.publicUrl
+              );
               return res.redirect(publicUrl.publicUrl);
             }
           } catch (redirectError) {
-            console.error('Erro ao obter URL pública:', redirectError);
+            console.error("Erro ao obter URL pública:", redirectError);
           }
 
           // Fallback final
           res.status(404).json({
-            error: 'Arquivo não encontrado',
-            details: (supabaseError as any)?.message || 'Erro desconhecido',
-            supabaseUrl: supabaseUrl
+            error: "Arquivo não encontrado",
+            details: (supabaseError as any)?.message || "Erro desconhecido",
+            supabaseUrl: supabaseUrl,
           });
         }
       } else {
         console.log(`❌ Documento sem arquivo físico no Supabase Storage`);
         console.log(`  - Documento: ${document.title}`);
         console.log(`  - ID: ${document.id}`);
-        console.log(`  - Original Name: ${originalName || 'Não definido'}`);
+        console.log(`  - Original Name: ${originalName || "Não definido"}`);
 
         // Retornar erro específico para documentos sem arquivo físico
         res.status(404).json({
           error: "Arquivo físico não encontrado",
           code: "DOCUMENTO_SEM_ARQUIVO",
-          message: "Este documento possui apenas metadados. Para visualizar o conteúdo, é necessário anexar um arquivo físico.",
+          message:
+            "Este documento possui apenas metadados. Para visualizar o conteúdo, é necessário anexar um arquivo físico.",
           documentTitle: document.title,
           documentId: document.id,
           suggestions: [
             "Use o botão 'Editar' para anexar um arquivo",
             "Verifique se o documento foi salvo corretamente",
-            "Entre em contato com o administrador se o problema persistir"
-          ]
+            "Entre em contato com o administrador se o problema persistir",
+          ],
         });
       }
     } catch (error: any) {
-      console.error('Erro na rota de visualização:', error);
+      console.error("Erro na rota de visualização:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -1708,7 +2100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.success) {
         return res.status(400).json({
           message: "Dados do documento inválidos",
-          errors: result.error.errors
+          errors: result.error.errors,
         });
       }
 
@@ -1721,7 +2113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Função para gerar hash de verificação
       const generateVerificationHash = (content: string) => {
-        return createHash('sha256').update(content + Date.now()).digest('hex');
+        return createHash("sha256")
+          .update(content + Date.now())
+          .digest("hex");
       };
 
       // Se houver conteúdo JSON, gerar campos automáticos
@@ -1732,20 +2126,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Gerar identificação digital se não existir ou estiver vazia
           if (!contentObj.digitalId || contentObj.digitalId === "") {
             contentObj.digitalId = generateDigitalId();
-            console.log(`🔐 ID Digital gerado automaticamente: ${contentObj.digitalId}`);
+            console.log(
+              `🔐 ID Digital gerado automaticamente: ${contentObj.digitalId}`
+            );
           }
 
           // Gerar hash de verificação se não existir ou estiver vazio
-          if (!contentObj.verificationHash || contentObj.verificationHash === "") {
-            contentObj.verificationHash = generateVerificationHash(result.data.content);
-            console.log(`🔐 Hash de verificação gerado automaticamente: ${contentObj.verificationHash.substring(0, 16)}...`);
+          if (
+            !contentObj.verificationHash ||
+            contentObj.verificationHash === ""
+          ) {
+            contentObj.verificationHash = generateVerificationHash(
+              result.data.content
+            );
+            console.log(
+              `🔐 Hash de verificação gerado automaticamente: ${contentObj.verificationHash.substring(
+                0,
+                16
+              )}...`
+            );
           }
 
           // Atualizar o conteúdo com os campos gerados
           result.data.content = JSON.stringify(contentObj);
-
         } catch (parseError) {
-          console.warn("⚠️ Erro ao parsear conteúdo para geração automática:", parseError);
+          console.warn(
+            "⚠️ Erro ao parsear conteúdo para geração automática:",
+            parseError
+          );
         }
       }
 
@@ -1755,7 +2163,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Documento não encontrado" });
       }
 
-      console.log(`✅ Documento ${id} atualizado com campos automáticos gerados`);
+      console.log(
+        `✅ Documento ${id} atualizado com campos automáticos gerados`
+      );
       res.json(document);
     } catch (error) {
       console.error("Erro ao atualizar documento:", error);
@@ -1795,8 +2205,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID do documento inválido" });
       }
 
-      if (!extractedText || typeof extractedText !== 'string') {
-        return res.status(400).json({ message: "Texto extraído é obrigatório" });
+      if (!extractedText || typeof extractedText !== "string") {
+        return res
+          .status(400)
+          .json({ message: "Texto extraído é obrigatório" });
       }
 
       // Buscar documento atual
@@ -1819,19 +2231,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Adicionar texto extraído ao conteúdo
       const updatedContent = {
         ...currentContent,
-        extractedText: extractedText
+        extractedText: extractedText,
       };
 
       // Atualizar documento
       const updatedDocument = await storage.updateDocument(id, {
-        content: JSON.stringify(updatedContent)
+        content: JSON.stringify(updatedContent),
       });
 
-      console.log(`📝 Texto extraído adicionado ao documento ${id}: ${extractedText.substring(0, 100)}...`);
+      console.log(
+        `📝 Texto extraído adicionado ao documento ${id}: ${extractedText.substring(
+          0,
+          100
+        )}...`
+      );
 
       res.json({
         message: "Texto extraído adicionado com sucesso",
-        document: updatedDocument
+        document: updatedDocument,
       });
     } catch (error) {
       console.error("Erro ao adicionar texto extraído:", error);
@@ -1881,18 +2298,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parentId = parseInt(req.params.id);
 
       if (isNaN(parentId)) {
-        return res.status(400).json({ message: "ID do documento pai inválido" });
+        return res
+          .status(400)
+          .json({ message: "ID do documento pai inválido" });
       }
 
       const parsed = insertDocumentRelationSchema.safeParse({
         ...req.body,
-        parentDocumentId: parentId
+        parentDocumentId: parentId,
       });
 
       if (!parsed.success) {
         return res.status(400).json({
           message: "Dados de relacionamento inválidos",
-          errors: parsed.error.errors
+          errors: parsed.error.errors,
         });
       }
 
@@ -1910,13 +2329,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const relationId = parseInt(req.params.relationId);
 
       if (isNaN(relationId)) {
-        return res.status(400).json({ message: "ID do relacionamento inválido" });
+        return res
+          .status(400)
+          .json({ message: "ID do relacionamento inválido" });
       }
 
       const deleted = await storage.deleteDocumentRelation(relationId);
 
       if (!deleted) {
-        return res.status(404).json({ message: "Relacionamento não encontrado" });
+        return res
+          .status(404)
+          .json({ message: "Relacionamento não encontrado" });
       }
 
       res.json({ message: "Relacionamento removido com sucesso" });
@@ -1929,28 +2352,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ROTA DE TESTE PARA CRIAR DOCUMENTO REAL
   app.post("/api/test-upload-real", async (req, res) => {
     try {
-      console.log('🧪 CRIANDO DOCUMENTO REAL DE TESTE...');
+      console.log("🧪 CRIANDO DOCUMENTO REAL DE TESTE...");
 
       // Criar PDF real em base64
-      const realPdfBase64 = "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA0IDAgUgo+Pgo+PgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSA2IFRmCjEwIDUwIFRkCihET0NVTUVOVE8gUkVBTCBGVU5DSU9OQU5ETykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQxMQolJUVPRg==";
+      const realPdfBase64 =
+        "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA0IDAgUgo+Pgo+PgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCi9GMSA2IFRmCjEwIDUwIFRkCihET0NVTUVOVE8gUkVBTCBGVU5DSU9OQU5ETykgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDMxNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQxMQolJUVPRg==";
 
       const { supabase } = await import("./supabase");
-      const buffer = Buffer.from(realPdfBase64, 'base64');
+      const buffer = Buffer.from(realPdfBase64, "base64");
       const fileName = `test_real_${Date.now()}.pdf`;
 
       // Upload direto para o Supabase
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
+        .from("documents")
         .upload(fileName, buffer, {
-          contentType: 'application/pdf'
+          contentType: "application/pdf",
         });
 
       if (uploadError) {
-        console.error('❌ Erro no upload de teste:', uploadError);
+        console.error("❌ Erro no upload de teste:", uploadError);
         return res.status(500).json({ error: uploadError.message });
       }
 
-      console.log('✅ TESTE: PDF real criado no Supabase:', fileName);
+      console.log("✅ TESTE: PDF real criado no Supabase:", fileName);
 
       // Criar documento no banco com dados corretos
       const documentContent = JSON.stringify({
@@ -1960,14 +2384,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileInfo: {
           originalName: "Documento_Teste_Real.pdf",
           mimeType: "application/pdf",
-          size: buffer.length
+          size: buffer.length,
         },
         title: "DOCUMENTO TESTE FUNCIONANDO",
         documentType: "Teste",
         publicOrgan: "Sistema AtoM",
         responsibleSector: "TI",
         responsible: "Sistema Automatizado",
-        description: "Documento PDF real criado automaticamente para teste"
+        description: "Documento PDF real criado automaticamente para teste",
       });
 
       const newDocument = await storage.createDocument({
@@ -1976,280 +2400,392 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: documentContent,
         category: "Documentos",
         author: "Sistema",
-        tags: ["teste", "real", "funcionando"]
+        tags: ["teste", "real", "funcionando"],
       });
 
-      console.log('✅ TESTE: Documento criado no banco:', newDocument.id);
+      console.log("✅ TESTE: Documento criado no banco:", newDocument.id);
 
       res.json({
         message: "Documento real criado com sucesso",
         documentId: newDocument.id,
         fileName: fileName,
-        size: buffer.length
+        size: buffer.length,
       });
-
     } catch (error) {
-      console.error('❌ Erro no teste:', error);
+      console.error("❌ Erro no teste:", error);
       res.status(500).json({ error: "Erro no teste" });
     }
   });
 
   // Nova rota para upload via FormData (para gerenciamento de conteúdo)
-  app.post("/api/supabase-storage/upload-file", upload.single('file'), async (req, res) => {
-    try {
-      console.log("🖼️ UPLOAD IMAGEM - Recebendo arquivo via FormData...");
-
-      if (!req.file) {
-        return res.status(400).json({ message: "Nenhum arquivo fornecido" });
-      }
-
-      const { bucket = 'images' } = req.body;
-      const file = req.file;
-
-      console.log("📁 Arquivo recebido:", {
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size,
-        bucket: bucket
-      });
-
-      // Gerar nome único para o arquivo
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substring(2);
-      const extension = file.originalname.split('.').pop();
-      const fileName = `homepage_${timestamp}_${randomStr}.${extension}`;
-
-      // Importar cliente Supabase ADMINISTRATIVO para bypass RLS
-      let supabaseAdmin;
+  app.post(
+    "/api/supabase-storage/upload-file",
+    upload.single("file"),
+    async (req, res) => {
       try {
-        console.log('🔄 HOMEPAGE - Tentando carregar Supabase ADMIN via ES modules...');
-        const supabaseModule = await import("./supabase");
-        supabaseAdmin = supabaseModule.supabaseAdmin;
-        console.log('✅ HOMEPAGE - Supabase ADMIN carregado via ES modules');
-      } catch (esError) {
-        console.error('❌ HOMEPAGE - Erro ao carregar via ES modules:', esError.message);
-        try {
-          console.log('🔄 HOMEPAGE - Tentando carregar Supabase ADMIN via CommonJS...');
-          const supabaseModule = require("./supabase");
-          supabaseAdmin = supabaseModule.supabaseAdmin;
-          console.log('✅ HOMEPAGE - Supabase ADMIN carregado via CommonJS');
-        } catch (cjsError) {
-          console.error('❌ HOMEPAGE - Erro ao carregar via CommonJS:', cjsError.message);
-          return res.status(500).json({
-            message: "Erro crítico na configuração do Supabase ADMIN",
-            esError: esError.message,
-            cjsError: cjsError.message
-          });
+        console.log("🖼️ UPLOAD IMAGEM - Recebendo arquivo via FormData...");
+
+        if (!req.file) {
+          return res.status(400).json({ message: "Nenhum arquivo fornecido" });
         }
-      }
 
-      // Verificar se o cliente administrativo está disponível
-      if (!supabaseAdmin) {
-        console.error('❌ Cliente Supabase ADMIN não disponível');
-        return res.status(500).json({
-          message: "Erro: Cliente administrativo não configurado",
-          error: "Service key não configurada"
-        });
-      }
+        const { bucket = "images" } = req.body;
+        const file = req.file;
 
-      // Upload para Supabase Storage usando cliente ADMINISTRATIVO (bypass RLS)
-      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-        .from(bucket)
-        .upload(fileName, file.buffer, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: file.mimetype
+        console.log("📁 Arquivo recebido:", {
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+          bucket: bucket,
         });
 
-      if (uploadError) {
-        console.error("❌ Erro no upload:", uploadError);
-        return res.status(500).json({ message: "Erro no upload", error: uploadError.message });
+        // Gerar nome único para o arquivo
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2);
+        const extension = file.originalname.split(".").pop();
+        const fileName = `homepage_${timestamp}_${randomStr}.${extension}`;
+
+        // Importar cliente Supabase com fallback para ambientes diferentes
+        let supabase;
+        try {
+          console.log(
+            "🔄 HOMEPAGE - Tentando carregar Supabase via ES modules..."
+          );
+          const supabaseModule = await import("./supabase");
+          supabase = supabaseModule.supabase;
+          console.log("✅ HOMEPAGE - Supabase carregado via ES modules");
+        } catch (esError) {
+          console.error(
+            "❌ HOMEPAGE - Erro ao carregar via ES modules:",
+            esError.message
+          );
+          try {
+            console.log(
+              "🔄 HOMEPAGE - Tentando carregar Supabase via CommonJS..."
+            );
+            const supabaseModule = require("./supabase");
+            supabase = supabaseModule.supabase;
+            console.log("✅ HOMEPAGE - Supabase carregado via CommonJS");
+          } catch (cjsError) {
+            console.error(
+              "❌ HOMEPAGE - Erro ao carregar via CommonJS:",
+              cjsError.message
+            );
+            return res.status(500).json({
+              message: "Erro crítico na configuração do Supabase",
+              esError: esError.message,
+              cjsError: cjsError.message,
+            });
+          }
+        }
+
+        // Upload para Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(fileName, file.buffer, {
+            cacheControl: "3600",
+            upsert: true,
+            contentType: file.mimetype,
+          });
+
+        if (uploadError) {
+          console.error("❌ Erro no upload:", uploadError);
+          return res
+            .status(500)
+            .json({ message: "Erro no upload", error: uploadError.message });
+        }
+
+        console.log("✅ Upload realizado com sucesso:", uploadData.path);
+
+        // Obter URL pública do arquivo
+        const { data: urlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(fileName);
+
+        // Retornar dados do arquivo
+        res.json({
+          fileName: fileName,
+          originalName: file.originalname,
+          path: uploadData.path,
+          size: file.size,
+          mimeType: file.mimetype,
+          url: urlData.publicUrl,
+        });
+      } catch (error: any) {
+        console.error("❌ Erro no upload via FormData:", error);
+        res
+          .status(500)
+          .json({ message: "Erro interno do servidor", error: error?.message });
       }
-
-      console.log("✅ Upload realizado com sucesso:", uploadData.path);
-
-      // Obter URL pública do arquivo usando cliente ADMINISTRATIVO
-      const { data: urlData } = supabaseAdmin.storage
-        .from(bucket)
-        .getPublicUrl(fileName);
-
-      // Retornar dados do arquivo
-      res.json({
-        fileName: fileName,
-        originalName: file.originalname,
-        path: uploadData.path,
-        size: file.size,
-        mimeType: file.mimetype,
-        url: urlData.publicUrl
-      });
-
-    } catch (error: any) {
-      console.error("❌ Erro no upload via FormData:", error);
-      res.status(500).json({ message: "Erro interno do servidor", error: error?.message });
     }
-  });
+  );
 
   // Upload CORRIGIDO de arquivo via FormData para Supabase (evita corrupção)
-  app.post("/api/supabase-upload-formdata", upload.single('file'), async (req, res) => {
-    try {
-      console.log("🚀 PRODUCTION DEBUG - Fazendo upload via FormData para Supabase Storage...");
-      console.log("🚀 PRODUCTION DEBUG - Node version:", process.version);
-      console.log("🚀 PRODUCTION DEBUG - Environment:", process.env.NODE_ENV);
-
-      if (!req.file) {
-        return res.status(400).json({ message: "Nenhum arquivo fornecido" });
-      }
-
-      const { fileName, bucket, metadata } = req.body;
-      let parsedMetadata = {};
-
+  app.post(
+    "/api/supabase-upload-formdata",
+    upload.single("file"),
+    async (req, res) => {
       try {
-        parsedMetadata = JSON.parse(metadata || '{}');
-      } catch (e) {
-        console.warn('Metadata não é JSON válido, usando objeto vazio');
-      }
+        console.log(
+          "🚀 PRODUCTION DEBUG - Fazendo upload via FormData para Supabase Storage..."
+        );
+        console.log("🚀 PRODUCTION DEBUG - Node version:", process.version);
+        console.log("🚀 PRODUCTION DEBUG - Environment:", process.env.NODE_ENV);
 
-      const file = req.file;
+        if (!req.file) {
+          return res.status(400).json({ message: "Nenhum arquivo fornecido" });
+        }
 
-      console.log("📁 Arquivo recebido:", {
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size,
-        fileName: fileName,
-        bucket: bucket
-      });
+        const { fileName, bucket, metadata } = req.body;
+        let parsedMetadata = {};
 
-      // Importar cliente Supabase com fallback para ambientes diferentes
-      let supabase;
-      try {
-        console.log('🔄 DEPLOYMENT - Tentando carregar Supabase via ES modules...');
-        const supabaseModule = await import("./supabase");
-        supabase = supabaseModule.supabase;
-        console.log('✅ DEPLOYMENT - Supabase carregado via ES modules');
-      } catch (esError) {
-        console.error('❌ DEPLOYMENT - Erro ao carregar via ES modules:', esError.message);
         try {
-          console.log('🔄 DEPLOYMENT - Tentando carregar Supabase via CommonJS...');
-          const supabaseModule = require("./supabase");
-          supabase = supabaseModule.supabase;
-          console.log('✅ DEPLOYMENT - Supabase carregado via CommonJS');
-        } catch (cjsError) {
-          console.error('❌ DEPLOYMENT - Erro ao carregar via CommonJS:', cjsError.message);
-          return res.status(500).json({
-            message: "Erro crítico na configuração do Supabase",
-            esError: esError.message,
-            cjsError: cjsError.message
-          });
+          parsedMetadata = JSON.parse(metadata || "{}");
+        } catch (e) {
+          console.warn("Metadata não é JSON válido, usando objeto vazio");
         }
-      }
 
-      if (!supabase) {
-        console.error('❌ DEPLOYMENT - Cliente Supabase não foi carregado corretamente');
-        return res.status(500).json({ message: "Erro na configuração do Supabase" });
-      }
+        const file = req.file;
 
-      console.log('✅ DEPLOYMENT - Cliente Supabase carregado com sucesso');
-
-      // Verificar se é PDF válido
-      if (file.mimetype === 'application/pdf') {
-        const header = file.buffer.toString('ascii', 0, 8);
-        if (!header.startsWith('%PDF')) {
-          console.error('❌ UPLOAD - Arquivo não é PDF válido. Header:', header);
-          return res.status(400).json({
-            message: "Arquivo não é PDF válido",
-            details: `Header encontrado: ${header}`,
-            originalName: file.originalname
-          });
-        }
-        console.log('✅ PDF válido confirmado');
-      }
-
-      // Upload para o Storage via servidor usando buffer direto
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, file.buffer, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: file.mimetype
+        console.log("📁 Arquivo recebido:", {
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+          fileName: fileName,
+          bucket: bucket,
         });
 
-      if (uploadError) {
-        console.error("❌ Erro no upload do Supabase Storage:", uploadError);
-        console.error("❌ Detalhes do erro:", JSON.stringify(uploadError, null, 2));
-        return res.status(500).json({ message: "Erro no upload", error: uploadError.message });
-      }
-
-      console.log("✅ Upload realizado com sucesso no Supabase Storage:", uploadData.path);
-
-      // VALIDAÇÃO PÓS-UPLOAD: Verificar se o arquivo foi salvo corretamente
-      console.log('🔍 VERIFICAÇÃO PÓS-UPLOAD - Testando download do arquivo...');
-      try {
-        const { data: testData, error: testError } = await supabase.storage
-          .from(bucket)
-          .download(fileName);
-
-        if (testError) {
-          console.error('❌ Erro na verificação pós-upload:', testError);
-        } else if (testData) {
-          const testBuffer = Buffer.from(await testData.arrayBuffer());
-          const testFirstBytes = testBuffer.slice(0, 10).toString('ascii');
-          console.log('✅ VERIFICAÇÃO - Arquivo salvo corretamente. Primeiros bytes:', testFirstBytes);
-          console.log('✅ VERIFICAÇÃO - Tamanho salvo:', testBuffer.length, 'bytes');
+        // Importar cliente Supabase com fallback para ambientes diferentes
+        let supabase;
+        try {
+          console.log(
+            "🔄 DEPLOYMENT - Tentando carregar Supabase via ES modules..."
+          );
+          const supabaseModule = await import("./supabase");
+          supabase = supabaseModule.supabase;
+          console.log("✅ DEPLOYMENT - Supabase carregado via ES modules");
+        } catch (esError) {
+          console.error(
+            "❌ DEPLOYMENT - Erro ao carregar via ES modules:",
+            esError.message
+          );
+          try {
+            console.log(
+              "🔄 DEPLOYMENT - Tentando carregar Supabase via CommonJS..."
+            );
+            const supabaseModule = require("./supabase");
+            supabase = supabaseModule.supabase;
+            console.log("✅ DEPLOYMENT - Supabase carregado via CommonJS");
+          } catch (cjsError) {
+            console.error(
+              "❌ DEPLOYMENT - Erro ao carregar via CommonJS:",
+              cjsError.message
+            );
+            return res.status(500).json({
+              message: "Erro crítico na configuração do Supabase",
+              esError: esError.message,
+              cjsError: cjsError.message,
+            });
+          }
         }
-      } catch (verifyError) {
-        console.error('❌ Erro na verificação pós-upload:', verifyError);
+
+        if (!supabase) {
+          console.error(
+            "❌ DEPLOYMENT - Cliente Supabase não foi carregado corretamente"
+          );
+          return res
+            .status(500)
+            .json({ message: "Erro na configuração do Supabase" });
+        }
+
+        console.log("✅ DEPLOYMENT - Cliente Supabase carregado com sucesso");
+
+        // Verificar se é PDF válido
+        if (file.mimetype === "application/pdf") {
+          const header = file.buffer.toString("ascii", 0, 8);
+          if (!header.startsWith("%PDF")) {
+            console.error(
+              "❌ UPLOAD - Arquivo não é PDF válido. Header:",
+              header
+            );
+            return res.status(400).json({
+              message: "Arquivo não é PDF válido",
+              details: `Header encontrado: ${header}`,
+              originalName: file.originalname,
+            });
+          }
+          console.log("✅ PDF válido confirmado");
+        }
+
+        // Upload para o Storage via servidor usando buffer direto
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(fileName, file.buffer, {
+            cacheControl: "3600",
+            upsert: true,
+            contentType: file.mimetype,
+          });
+
+        if (uploadError) {
+          console.error("❌ Erro no upload do Supabase Storage:", uploadError);
+          console.error(
+            "❌ Detalhes do erro:",
+            JSON.stringify(uploadError, null, 2)
+          );
+          return res
+            .status(500)
+            .json({ message: "Erro no upload", error: uploadError.message });
+        }
+
+        console.log(
+          "✅ Upload realizado com sucesso no Supabase Storage:",
+          uploadData.path
+        );
+
+        // VALIDAÇÃO PÓS-UPLOAD: Verificar se o arquivo foi salvo corretamente
+        console.log(
+          "🔍 VERIFICAÇÃO PÓS-UPLOAD - Testando download do arquivo..."
+        );
+        try {
+          const { data: testData, error: testError } = await supabase.storage
+            .from(bucket)
+            .download(fileName);
+
+          if (testError) {
+            console.error("❌ Erro na verificação pós-upload:", testError);
+          } else if (testData) {
+            const testBuffer = Buffer.from(await testData.arrayBuffer());
+            const testFirstBytes = testBuffer.slice(0, 10).toString("ascii");
+            console.log(
+              "✅ VERIFICAÇÃO - Arquivo salvo corretamente. Primeiros bytes:",
+              testFirstBytes
+            );
+            console.log(
+              "✅ VERIFICAÇÃO - Tamanho salvo:",
+              testBuffer.length,
+              "bytes"
+            );
+          }
+        } catch (verifyError) {
+          console.error("❌ Erro na verificação pós-upload:", verifyError);
+        }
+
+        // Obter URL do arquivo
+        let fileUrl = null;
+        const { data: urlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(fileName);
+        fileUrl = urlData.publicUrl;
+
+        // Calcular hash SHA256 do arquivo
+        const fileHash = createHash("sha256").update(file.buffer).digest("hex");
+
+        // Criar dados para salvar na tabela files
+        const fileData = {
+          id: `sb_${Date.now()}_${Math.random().toString(36).substring(2)}`,
+          filename: fileName,
+          original_name: parsedMetadata.originalName || file.originalname,
+          file_path: uploadData.path,
+          file_size: file.size,
+          mime_type: file.mimetype,
+          file_type: bucket,
+          // CAMPOS OBRIGATÓRIOS CORRIGIDOS
+          file_category: parsedMetadata.category || "Documentos",
+          file_extension: (
+            file.originalname.split(".").pop() || "txt"
+          ).toLowerCase(),
+          category: parsedMetadata.category || "Documentos",
+          uploaded_by: parsedMetadata.userId || "system",
+          description: parsedMetadata.description || "",
+          tags: parsedMetadata.tags || [],
+          is_public: true,
+          file_checksum: fileHash,
+          metadata: {
+            url: fileUrl,
+            bucket,
+            uploadTimestamp: new Date().toISOString(),
+            title:
+              parsedMetadata.title ||
+              parsedMetadata.originalName ||
+              file.originalname,
+            main_subject:
+              parsedMetadata.mainSubject || parsedMetadata.category || "",
+            environment: parsedMetadata.environment || "production",
+          },
+          title:
+            parsedMetadata.title ||
+            parsedMetadata.originalName ||
+            file.originalname,
+          main_subject:
+            parsedMetadata.mainSubject || parsedMetadata.category || "",
+          environment: parsedMetadata.environment || "production",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Salvar metadados na tabela files usando cliente administrativo (bypass RLS)
+        console.log("💾 Salvando metadados na tabela files...");
+        console.log("🔑 Usando supabaseAdmin para bypass RLS...");
+
+        // Verificar se temos cliente administrativo configurado
+        if (!supabaseAdmin) {
+          console.error(
+            "❌ Cliente administrativo do Supabase não configurado"
+          );
+          return res.status(500).json({
+            message: "Erro na configuração do Supabase",
+            error: "Cliente administrativo não disponível",
+          });
+        }
+
+        // CORREÇÃO CRÍTICA: Usar supabaseAdmin para bypass RLS
+        console.log("🔑 Inserindo com supabaseAdmin (bypass RLS)...");
+        const { data: insertData, error: insertError } = await supabaseAdmin
+          .from("files")
+          .insert(fileData)
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("❌ Erro ao salvar na tabela files:", insertError);
+          console.error(
+            "❌ Detalhes do erro RLS:",
+            JSON.stringify(insertError, null, 2)
+          );
+          return res.status(500).json({
+            message: "Erro ao salvar metadados",
+            error: insertError.message,
+            details: "Possível problema com políticas RLS",
+          });
+        } else {
+          console.log("✅ Metadados salvos na tabela files:", insertData.id);
+          // Usar dados inseridos na resposta
+          fileData.id = insertData.id;
+        }
+
+        // Criar resposta com dados do arquivo
+        const fileResponse = fileData;
+
+        console.log(
+          "✅ UPLOAD CORRIGIDO - Resposta criada:",
+          fileResponse.filename
+        );
+        res.json(fileResponse);
+      } catch (error: any) {
+        console.error(
+          "❌ DEPLOYMENT - Erro no upload via FormData corrigido:",
+          error
+        );
+        console.error("❌ DEPLOYMENT - Stack trace:", error.stack);
+        console.error("❌ DEPLOYMENT - Tipo do erro:", typeof error);
+        res.status(500).json({
+          message: "Erro interno do servidor",
+          error: error?.message,
+          stack: error?.stack?.split("\n")?.slice(0, 5)?.join("\n"), // Primeiras 5 linhas do stack
+        });
       }
-
-      // Obter URL do arquivo
-      let fileUrl = null;
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(fileName);
-      fileUrl = urlData.publicUrl;
-
-      // Calcular hash SHA256 do arquivo
-      const fileHash = createHash('sha256').update(file.buffer).digest('hex');
-
-      // Criar resposta com dados do arquivo
-      const fileResponse = {
-        id: `sb_${Date.now()}_${Math.random().toString(36).substring(2)}`,
-        filename: fileName,
-        original_name: parsedMetadata.originalName || file.originalname,
-        file_path: uploadData.path,
-        file_size: file.size,
-        mime_type: file.mimetype,
-        file_type: bucket,
-        category: parsedMetadata.category || '',
-        uploaded_by: parsedMetadata.userId,
-        description: parsedMetadata.description || '',
-        tags: parsedMetadata.tags || [],
-        is_public: true,
-        download_count: 0,
-        last_accessed: undefined,
-        file_hash: fileHash,
-        metadata: {
-          url: fileUrl,
-          bucket,
-          uploadTimestamp: new Date().toISOString()
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      console.log("✅ UPLOAD CORRIGIDO - Resposta criada:", fileResponse.filename);
-      res.json(fileResponse);
-
-    } catch (error: any) {
-      console.error("❌ DEPLOYMENT - Erro no upload via FormData corrigido:", error);
-      console.error("❌ DEPLOYMENT - Stack trace:", error.stack);
-      console.error("❌ DEPLOYMENT - Tipo do erro:", typeof error);
-      res.status(500).json({
-        message: "Erro interno do servidor",
-        error: error?.message,
-        stack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') // Primeiras 5 linhas do stack
-      });
     }
-  });
+  );
 
   // Deletar arquivo do Supabase Storage (para substituição de arquivos)
   app.delete("/api/supabase-delete-file", async (req, res) => {
@@ -2259,7 +2795,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { fileName, bucket } = req.body;
 
       if (!fileName || !bucket) {
-        return res.status(400).json({ message: "fileName e bucket são obrigatórios" });
+        return res
+          .status(400)
+          .json({ message: "fileName e bucket são obrigatórios" });
       }
 
       console.log("🗑️ Arquivo para deletar:", fileName, "Bucket:", bucket);
@@ -2267,23 +2805,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Importar cliente Supabase com fallback para ambientes diferentes
       let supabase;
       try {
-        console.log('🔄 DELETE - Tentando carregar Supabase via ES modules...');
+        console.log("🔄 DELETE - Tentando carregar Supabase via ES modules...");
         const supabaseModule = await import("./supabase");
         supabase = supabaseModule.supabase;
-        console.log('✅ DELETE - Supabase carregado via ES modules');
+        console.log("✅ DELETE - Supabase carregado via ES modules");
       } catch (esError) {
-        console.error('❌ DELETE - Erro ao carregar via ES modules:', esError.message);
+        console.error(
+          "❌ DELETE - Erro ao carregar via ES modules:",
+          esError.message
+        );
         try {
-          console.log('🔄 DELETE - Tentando carregar Supabase via CommonJS...');
+          console.log("🔄 DELETE - Tentando carregar Supabase via CommonJS...");
           const supabaseModule = require("./supabase");
           supabase = supabaseModule.supabase;
-          console.log('✅ DELETE - Supabase carregado via CommonJS');
+          console.log("✅ DELETE - Supabase carregado via CommonJS");
         } catch (cjsError) {
-          console.error('❌ DELETE - Erro ao carregar via CommonJS:', cjsError.message);
+          console.error(
+            "❌ DELETE - Erro ao carregar via CommonJS:",
+            cjsError.message
+          );
           return res.status(500).json({
             message: "Erro crítico na configuração do Supabase",
             esError: esError.message,
-            cjsError: cjsError.message
+            cjsError: cjsError.message,
           });
         }
       }
@@ -2298,7 +2842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({
           message: "Erro ao deletar arquivo",
           error: error.message,
-          fileName: fileName
+          fileName: fileName,
         });
       }
 
@@ -2309,14 +2853,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Arquivo deletado com sucesso",
         fileName: fileName,
         bucket: bucket,
-        data: data
+        data: data,
       });
-
     } catch (error: any) {
       console.error("❌ Erro na deleção:", error);
       res.status(500).json({
         message: "Erro interno do servidor",
-        error: error?.message
+        error: error?.message,
       });
     }
   });
@@ -2325,13 +2868,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/supabase-upload", async (req, res) => {
     try {
       console.log("🚀 Fazendo upload via servidor para Supabase Storage...");
-      console.log("📊 Tamanho do body recebido:", JSON.stringify(req.body).length, "bytes");
+      console.log(
+        "📊 Tamanho do body recebido:",
+        JSON.stringify(req.body).length,
+        "bytes"
+      );
 
       const { fileName, fileData, bucket, metadata } = req.body;
 
       if (!fileName || !fileData || !bucket) {
         console.error("❌ Dados obrigatórios não fornecidos");
-        return res.status(400).json({ message: "fileName, fileData e bucket são obrigatórios" });
+        return res
+          .status(400)
+          .json({ message: "fileName, fileData e bucket são obrigatórios" });
       }
 
       console.log("📁 Arquivo:", fileName, "Bucket:", bucket);
@@ -2342,20 +2891,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { supabase } = await import("./supabase");
 
       // Converter base64 para buffer
-      const buffer = Buffer.from(fileData, 'base64');
+      const buffer = Buffer.from(fileData, "base64");
 
       // Verificar se os dados são válidos
-      const firstBytes = buffer.slice(0, 10).toString('ascii');
-      console.log('🔍 UPLOAD - Primeiros bytes do arquivo:', firstBytes);
-      console.log('🔍 UPLOAD - Tamanho do buffer:', buffer.length, 'bytes');
+      const firstBytes = buffer.slice(0, 10).toString("ascii");
+      console.log("🔍 UPLOAD - Primeiros bytes do arquivo:", firstBytes);
+      console.log("🔍 UPLOAD - Tamanho do buffer:", buffer.length, "bytes");
 
       // VALIDAÇÃO CRÍTICA: Verificar se é PDF válido antes do upload
-      if (metadata.mimeType === 'application/pdf' && !firstBytes.startsWith('%PDF')) {
-        console.error('❌ UPLOAD - Arquivo não é PDF válido. Primeiros bytes:', firstBytes);
+      if (
+        metadata.mimeType === "application/pdf" &&
+        !firstBytes.startsWith("%PDF")
+      ) {
+        console.error(
+          "❌ UPLOAD - Arquivo não é PDF válido. Primeiros bytes:",
+          firstBytes
+        );
         return res.status(400).json({
           message: "Arquivo não é PDF válido",
           details: `Primeiros bytes: ${firstBytes}`,
-          originalName: metadata.originalName
+          originalName: metadata.originalName,
         });
       }
 
@@ -2363,36 +2918,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(fileName, buffer, {
-          cacheControl: '3600',
+          cacheControl: "3600",
           upsert: true, // Permitir sobrescrever
-          contentType: metadata.mimeType
+          contentType: metadata.mimeType,
         });
 
       if (uploadError) {
         console.error("❌ Erro no upload do Supabase Storage:", uploadError);
-        console.error("❌ Detalhes do erro:", JSON.stringify(uploadError, null, 2));
-        return res.status(500).json({ message: "Erro no upload", error: uploadError.message });
+        console.error(
+          "❌ Detalhes do erro:",
+          JSON.stringify(uploadError, null, 2)
+        );
+        return res
+          .status(500)
+          .json({ message: "Erro no upload", error: uploadError.message });
       }
 
-      console.log("✅ Upload realizado com sucesso no Supabase Storage:", uploadData.path);
+      console.log(
+        "✅ Upload realizado com sucesso no Supabase Storage:",
+        uploadData.path
+      );
 
       // VALIDAÇÃO PÓS-UPLOAD: Verificar se o arquivo foi salvo corretamente
-      console.log('🔍 VERIFICAÇÃO PÓS-UPLOAD - Testando download do arquivo...');
+      console.log(
+        "🔍 VERIFICAÇÃO PÓS-UPLOAD - Testando download do arquivo..."
+      );
       try {
         const { data: testData, error: testError } = await supabase.storage
           .from(bucket)
           .download(fileName);
 
         if (testError) {
-          console.error('❌ Erro na verificação pós-upload:', testError);
+          console.error("❌ Erro na verificação pós-upload:", testError);
         } else if (testData) {
           const testBuffer = Buffer.from(await testData.arrayBuffer());
-          const testFirstBytes = testBuffer.slice(0, 10).toString('ascii');
-          console.log('✅ VERIFICAÇÃO - Arquivo salvo corretamente. Primeiros bytes:', testFirstBytes);
-          console.log('✅ VERIFICAÇÃO - Tamanho salvo:', testBuffer.length, 'bytes');
+          const testFirstBytes = testBuffer.slice(0, 10).toString("ascii");
+          console.log(
+            "✅ VERIFICAÇÃO - Arquivo salvo corretamente. Primeiros bytes:",
+            testFirstBytes
+          );
+          console.log(
+            "✅ VERIFICAÇÃO - Tamanho salvo:",
+            testBuffer.length,
+            "bytes"
+          );
         }
       } catch (verifyError) {
-        console.error('❌ Erro na verificação pós-upload:', verifyError);
+        console.error("❌ Erro na verificação pós-upload:", verifyError);
       }
 
       // Obter URL do arquivo
@@ -2411,9 +2983,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         file_size: metadata.fileSize,
         mime_type: metadata.mimeType,
         file_type: bucket,
-        category: metadata.category || '',
+        category: metadata.category || "",
         uploaded_by: metadata.userId,
-        description: metadata.description || '',
+        description: metadata.description || "",
         tags: metadata.tags || [],
         is_public: true,
         download_count: 0,
@@ -2421,19 +2993,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           url: fileUrl,
           bucket,
-          uploadTimestamp: new Date().toISOString()
+          uploadTimestamp: new Date().toISOString(),
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_active: true,
-        environment: 'production'
+        environment: "production",
       };
 
       console.log("✅ Upload e metadados processados com sucesso");
       res.status(201).json(fileResponse);
     } catch (error: any) {
       console.error("❌ Erro no upload via servidor:", error);
-      res.status(500).json({ message: "Erro interno do servidor", error: error?.message });
+      res
+        .status(500)
+        .json({ message: "Erro interno do servidor", error: error?.message });
     }
   });
 
@@ -2452,7 +3026,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const featuredNews = await storage.getFeaturedNews();
 
       if (!featuredNews) {
-        return res.status(404).json({ message: "Nenhuma notícia em destaque encontrada" });
+        return res
+          .status(404)
+          .json({ message: "Nenhuma notícia em destaque encontrada" });
       }
 
       res.json(featuredNews);
@@ -2480,34 +3056,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const footerPages = [
         {
           id: 1,
-          slug: 'portal-transparencia',
-          title: 'Portal da Transparência',
-          description: 'Acesso às informações públicas',
-          content: 'Conteúdo do portal da transparência',
-          meta_description: 'Portal da transparência do sistema',
-          icon: '🔍',
-          category: 'links-uteis',
-          external_url: '#',
+          slug: "portal-transparencia",
+          title: "Portal da Transparência",
+          description: "Acesso às informações públicas",
+          content: "Conteúdo do portal da transparência",
+          meta_description: "Portal da transparência do sistema",
+          icon: "🔍",
+          category: "links-uteis",
+          external_url: "#",
           is_active: true,
           order_index: 1,
           created_at: new Date(),
-          updated_at: new Date()
+          updated_at: new Date(),
         },
         {
           id: 2,
-          slug: 'ouvidoria',
-          title: 'Ouvidoria',
-          description: 'Canal de denúncias e sugestões',
-          content: 'Conteúdo da ouvidoria',
-          meta_description: 'Ouvidoria do sistema',
-          icon: '⚖️',
-          category: 'contato',
-          external_url: '#',
+          slug: "ouvidoria",
+          title: "Ouvidoria",
+          description: "Canal de denúncias e sugestões",
+          content: "Conteúdo da ouvidoria",
+          meta_description: "Ouvidoria do sistema",
+          icon: "⚖️",
+          category: "contato",
+          external_url: "#",
           is_active: true,
           order_index: 1,
           created_at: new Date(),
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       ];
       res.json(footerPages);
     } catch (error) {
@@ -2520,7 +3096,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/footer-pages/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const footerPage = await db.select().from(footerPagesTable)
+      const footerPage = await db
+        .select()
+        .from(footerPagesTable)
         .where(eq(footerPagesTable.id, parseInt(id)))
         .limit(1);
 
@@ -2539,7 +3117,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/footer-pages/slug/:slug", async (req, res) => {
     try {
       const { slug } = req.params;
-      const footerPage = await db.select().from(footerPagesTable)
+      const footerPage = await db
+        .select()
+        .from(footerPagesTable)
         .where(eq(footerPagesTable.slug, slug))
         .limit(1);
 
@@ -2562,18 +3142,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validationResult.success) {
         return res.status(400).json({
           message: "Dados inválidos",
-          errors: validationResult.error.errors
+          errors: validationResult.error.errors,
         });
       }
 
-      const newPage = await db.insert(footerPagesTable)
+      const newPage = await db
+        .insert(footerPagesTable)
         .values(validationResult.data)
         .returning();
 
       res.status(201).json(newPage[0]);
     } catch (error: any) {
       console.error("Erro ao criar página do rodapé:", error);
-      if (error.code === '23505') { // Unique constraint violation
+      if (error.code === "23505") {
+        // Unique constraint violation
         res.status(400).json({ message: "Já existe uma página com este slug" });
       } else {
         res.status(500).json({ message: "Erro interno do servidor" });
@@ -2590,11 +3172,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validationResult.success) {
         return res.status(400).json({
           message: "Dados inválidos",
-          errors: validationResult.error.errors
+          errors: validationResult.error.errors,
         });
       }
 
-      const updatedPage = await db.update(footerPagesTable)
+      const updatedPage = await db
+        .update(footerPagesTable)
         .set({ ...validationResult.data, updated_at: new Date() })
         .where(eq(footerPagesTable.id, parseInt(id)))
         .returning();
@@ -2606,7 +3189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedPage[0]);
     } catch (error: any) {
       console.error("Erro ao atualizar página do rodapé:", error);
-      if (error.code === '23505') { // Unique constraint violation
+      if (error.code === "23505") {
+        // Unique constraint violation
         res.status(400).json({ message: "Já existe uma página com este slug" });
       } else {
         res.status(500).json({ message: "Erro interno do servidor" });
@@ -2618,7 +3202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/footer-pages/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const deletedPage = await db.delete(footerPagesTable)
+      const deletedPage = await db
+        .delete(footerPagesTable)
         .where(eq(footerPagesTable.id, parseInt(id)))
         .returning();
 
@@ -2636,97 +3221,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sistema de cache simples para estatísticas
   let statsCache: any = null;
   let statsCacheTime = 0;
-  const STATS_CACHE_DURATION = 0; // 0 segundos - SEM CACHE para forçar atualização
+  const STATS_CACHE_DURATION = 60000; // 1 minuto de cache
 
   // System stats route - OTIMIZADA
   app.get("/api/stats", async (req, res) => {
     try {
+      console.log("📊 GET /api/stats chamado");
+
       // Verificar cache
       const now = Date.now();
-      if (statsCache && (now - statsCacheTime) < STATS_CACHE_DURATION) {
+      if (statsCache && now - statsCacheTime < STATS_CACHE_DURATION) {
+        console.log("📊 Retornando dados do cache");
         return res.json(statsCache);
       }
 
-      // CORREÇÃO: Usar tabela files do Supabase em vez de documentsTable
-      const { storage } = await import('./storage');
+      console.log("📊 Gerando estatísticas em tempo real...");
 
-      // Buscar todos os arquivos ativos do Supabase
-      const allFiles = await storage.getDocuments();
-      const totalDocuments = allFiles.length;
+      // Obter dados reais do sistema de analytics
+      const searchStats = await AnalyticsTracker.getSearchStats();
+      console.log("📊 Search stats:", searchStats);
 
-      // Contar por categoria para estatísticas mais detalhadas
-      const documentsCount = allFiles.filter(f => f.file_type === 'documents' || f.category === 'documents').length;
-      const imagesCount = allFiles.filter(f => f.file_type === 'images' || f.category === 'images').length;
-      const spreadsheetsCount = allFiles.filter(f => f.file_type === 'spreadsheets' || f.category === 'spreadsheets').length;
-      const presentationsCount = allFiles.filter(f => f.file_type === 'presentations' || f.category === 'presentations').length;
+      const documentStats = await AnalyticsTracker.getDocumentStats();
+      console.log("📊 Document stats:", documentStats);
 
-      // CORREÇÃO: Contar eventos reais de busca e download
-      let totalSearches = 0;
-      let totalDownloads = 0;
+      // Contar documentos reais diretamente do PostgreSQL
+      const allDocuments = await db.select().from(documentsTable);
+      const totalDocuments = allDocuments.length;
+      console.log("📊 Total documents:", totalDocuments);
 
-      try {
-        // Tentar contar buscas reais
-        const { supabase } = await import('./supabase');
-        const { data: searchData, error: searchError } = await supabase
-          .from('search_analytics')
-          .select('*');
-
-        if (!searchError && searchData) {
-          totalSearches = searchData.length;
-          console.log('📊 Buscas reais encontradas:', totalSearches);
-        }
-      } catch (error) {
-        console.log('⚠️ Tabela search_analytics não encontrada, usando estimativa');
-        totalSearches = Math.floor(totalDocuments * 1.2);
-      }
-
-      try {
-        // Tentar contar downloads reais
-        const { supabase } = await import('./supabase');
-        const { data: downloadData, error: downloadError } = await supabase
-          .from('document_analytics')
-          .select('*')
-          .eq('action_type', 'download');
-
-        if (!downloadError && downloadData) {
-          totalDownloads = downloadData.length;
-          console.log('📊 Downloads reais encontrados:', totalDownloads);
-        }
-      } catch (error) {
-        console.log('⚠️ Tabela document_analytics não encontrada, usando estimativa');
-        totalDownloads = Math.floor(totalDocuments * 0.6);
-      }
-
-      // Estatísticas reais baseadas nos dados encontrados
+      // Combinar dados reais com estatísticas existentes
       const realStats = {
         documentos: totalDocuments,
-        visitantes: totalSearches, // Visitas = total de buscas realizadas
-        busca: totalSearches, // Total de buscas
-        downloads: totalDownloads, // Total de downloads reais
-        visualizacoes: Math.floor(totalDocuments * 2.5), // Estimativa baseada em documentos
-        buscasHoje: Math.floor(totalSearches * 0.1), // Estimativa baseada em buscas reais
-        downloadsHoje: Math.floor(totalDownloads * 0.05), // Estimativa baseada em downloads reais
-        visualizacoesHoje: Math.floor(totalDocuments * 0.2), // Estimativa baseada em documentos
-        // Estatísticas por categoria
-        documentos_categoria: documentsCount,
-        imagens_categoria: imagesCount,
-        planilhas_categoria: spreadsheetsCount,
-        apresentacoes_categoria: presentationsCount
+        visitantes: searchStats.uniqueVisitors,
+        busca: searchStats.totalSearches,
+        downloads: documentStats.totalDownloads,
+        visualizacoes: documentStats.totalViews,
+        buscasHoje: searchStats.searchesToday,
+        downloadsHoje: documentStats.downloadsToday,
+        visualizacoesHoje: documentStats.viewsToday,
       };
+
+      console.log("📊 Estatísticas finais:", realStats);
+
+      // Verificar se o objeto é serializável
+      try {
+        JSON.stringify(realStats);
+        console.log("📊 Dados são JSON válidos");
+      } catch (jsonError) {
+        console.error("❌ Dados não são JSON válidos:", jsonError);
+        return res
+          .status(500)
+          .json({ message: "Erro na formatação dos dados" });
+      }
 
       // Atualizar cache
       statsCache = realStats;
       statsCacheTime = now;
 
-      console.log('📊 Estatísticas atualizadas:', realStats);
+      console.log("📊 Enviando resposta JSON");
       res.json(realStats);
     } catch (error) {
-      console.error("Stats error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error("❌ Stats error:", error);
+      console.error(
+        "❌ Stack trace:",
+        error instanceof Error ? error.stack : "No stack trace"
+      );
+      res.status(500).json({
+        message: "Erro interno do servidor",
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+      });
     }
   });
-
-
 
   // ============= FUNCIONALIDADES REAIS - VISUALIZAR, EDITAR, DELETAR, COMPARTILHAR =============
 
@@ -2747,7 +3312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         operation: "view",
         details: { timestamp: new Date().toISOString() },
         ip_address: req.ip,
-        user_agent: req.get('User-Agent') || null
+        user_agent: req.get("User-Agent") || null,
       });
 
       res.json({ success: true, message: "Visualização registrada" });
@@ -2775,12 +3340,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar propriedade (apenas proprietário ou admin pode editar)
       const userRole = (req.session as any)?.user?.role;
-      if (document.user_id !== userId && userRole !== 'admin') {
-        return res.status(403).json({ message: "Sem permissão para editar este documento" });
+      if (document.user_id !== userId && userRole !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Sem permissão para editar este documento" });
       }
 
       // Atualizar documento
-      const updatedDocument = await storage.updateDocument(documentId, req.body);
+      const updatedDocument = await storage.updateDocument(
+        documentId,
+        req.body
+      );
 
       if (!updatedDocument) {
         return res.status(404).json({ message: "Documento não encontrado" });
@@ -2793,10 +3363,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         operation: "edit",
         details: {
           changes: req.body,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
         ip_address: req.ip,
-        user_agent: req.get('User-Agent') || null
+        user_agent: req.get("User-Agent") || null,
       });
 
       res.json(updatedDocument);
@@ -2812,6 +3382,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const documentId = parseInt(req.params.id);
       const userId = (req.session as any)?.user?.id;
 
+      console.log("🗑️ DELETE /api/documents/:id chamado com:", {
+        paramId: req.params.id,
+        parsedId: documentId,
+        isValidId: !isNaN(documentId),
+        userId: userId,
+      });
+
+      if (isNaN(documentId)) {
+        return res.status(400).json({
+          message: "ID do documento inválido",
+          providedId: req.params.id,
+          error: "Não foi possível converter para número",
+        });
+      }
+
       if (!userId) {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
@@ -2824,8 +3409,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar propriedade (apenas proprietário ou admin pode deletar)
       const userRole = (req.session as any)?.user?.role;
-      if (document.user_id !== userId && userRole !== 'admin') {
-        return res.status(403).json({ message: "Sem permissão para deletar este documento" });
+      if (document.user_id !== userId && userRole !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Sem permissão para deletar este documento" });
       }
 
       // Deletar documento
@@ -2842,10 +3429,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         operation: "delete",
         details: {
           documentTitle: document.title,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
         ip_address: req.ip,
-        user_agent: req.get('User-Agent') || null
+        user_agent: req.get("User-Agent") || null,
       });
 
       res.json({ success: true, message: "Documento deletado com sucesso" });
@@ -2860,14 +3447,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const documentId = parseInt(req.params.id);
       const userId = (req.session as any)?.user?.id;
-      const { shared_with, permission = 'view', expires_at } = req.body;
+      const { shared_with, permission = "view", expires_at } = req.body;
 
       if (!userId) {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
       if (!shared_with) {
-        return res.status(400).json({ message: "Email ou ID do usuário destinatário é obrigatório" });
+        return res.status(400).json({
+          message: "Email ou ID do usuário destinatário é obrigatório",
+        });
       }
 
       // Verificar se o usuário tem permissão para compartilhar
@@ -2878,8 +3467,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar propriedade (apenas proprietário ou admin pode compartilhar)
       const userRole = (req.session as any)?.user?.role;
-      if (document.user_id !== userId && userRole !== 'admin') {
-        return res.status(403).json({ message: "Sem permissão para compartilhar este documento" });
+      if (document.user_id !== userId && userRole !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Sem permissão para compartilhar este documento" });
       }
 
       // Criar compartilhamento
@@ -2888,7 +3479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shared_by: userId,
         shared_with,
         permission,
-        expires_at: expires_at ? new Date(expires_at) : null
+        expires_at: expires_at ? new Date(expires_at) : null,
       });
 
       // Log da operação de compartilhamento
@@ -2900,13 +3491,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           shared_with,
           permission,
           expires_at,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
         ip_address: req.ip,
-        user_agent: req.get('User-Agent') || null
+        user_agent: req.get("User-Agent") || null,
       });
 
-      res.json({ success: true, share, message: "Documento compartilhado com sucesso" });
+      res.json({
+        success: true,
+        share,
+        message: "Documento compartilhado com sucesso",
+      });
     } catch (error) {
       console.error("Erro ao compartilhar documento:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
@@ -2930,8 +3525,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userRole = (req.session as any)?.user?.role;
-      if (document.user_id !== userId && userRole !== 'admin') {
-        return res.status(403).json({ message: "Sem permissão para ver compartilhamentos deste documento" });
+      if (document.user_id !== userId && userRole !== "admin") {
+        return res.status(403).json({
+          message: "Sem permissão para ver compartilhamentos deste documento",
+        });
       }
 
       const shares = await storage.getDocumentShares(documentId);
@@ -2954,21 +3551,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se o usuário tem permissão para remover compartilhamento
       const shares = await storage.getDocumentShares(0); // Buscar todos para verificar
-      const share = shares.find(s => s.id === shareId);
+      const share = shares.find((s) => s.id === shareId);
 
       if (!share) {
-        return res.status(404).json({ message: "Compartilhamento não encontrado" });
+        return res
+          .status(404)
+          .json({ message: "Compartilhamento não encontrado" });
       }
 
       const userRole = (req.session as any)?.user?.role;
-      if (share.shared_by !== userId && userRole !== 'admin') {
-        return res.status(403).json({ message: "Sem permissão para remover este compartilhamento" });
+      if (share.shared_by !== userId && userRole !== "admin") {
+        return res.status(403).json({
+          message: "Sem permissão para remover este compartilhamento",
+        });
       }
 
       const deleted = await storage.deleteDocumentShare(shareId);
 
       if (!deleted) {
-        return res.status(404).json({ message: "Compartilhamento não encontrado" });
+        return res
+          .status(404)
+          .json({ message: "Compartilhamento não encontrado" });
       }
 
       // Log da operação
@@ -2978,13 +3581,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         operation: "unshare",
         details: {
           shareId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
         ip_address: req.ip,
-        user_agent: req.get('User-Agent') || null
+        user_agent: req.get("User-Agent") || null,
       });
 
-      res.json({ success: true, message: "Compartilhamento removido com sucesso" });
+      res.json({
+        success: true,
+        message: "Compartilhamento removido com sucesso",
+      });
     } catch (error) {
       console.error("Erro ao remover compartilhamento:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
@@ -3002,8 +3608,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apenas admins podem ver todos os logs
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem acessar logs do sistema" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem acessar logs do sistema",
+        });
       }
 
       const logs = await storage.getOperationLogs();
@@ -3034,34 +3642,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar Supabase Storage buckets
   app.post("/api/setup-storage", async (req, res) => {
     try {
-      const { setupSupabaseStorage, testStorageConnection } = await import('./setup-supabase-storage');
+      const { setupSupabaseStorage, testStorageConnection } = await import(
+        "./setup-supabase-storage"
+      );
 
-      console.log('🧪 Testando conexão Supabase Storage...');
+      console.log("🧪 Testando conexão Supabase Storage...");
       const connectionOk = await testStorageConnection();
 
       if (!connectionOk) {
         return res.status(500).json({
-          error: 'Falha na conexão com Supabase Storage',
-          success: false
+          error: "Falha na conexão com Supabase Storage",
+          success: false,
         });
       }
 
-      console.log('🏗️ Configurando buckets...');
+      console.log("🏗️ Configurando buckets...");
       const setupOk = await setupSupabaseStorage();
 
       res.json({
         success: setupOk,
         message: setupOk
-          ? 'Buckets configurados com sucesso'
-          : 'Alguns buckets falharam na criação'
+          ? "Buckets configurados com sucesso"
+          : "Alguns buckets falharam na criação",
       });
-
     } catch (error: any) {
-      console.error('Erro na configuração do storage:', error);
+      console.error("Erro na configuração do storage:", error);
       res.status(500).json({
-        error: 'Erro interno na configuração',
+        error: "Erro interno na configuração",
         details: error.message,
-        success: false
+        success: false,
       });
     }
   });
@@ -3074,8 +3683,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const currentUser = userId ? await storage.getUser(userId) : null;
 
-      if (!currentUser || currentUser.role !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem cadastrar usuários." });
+      if (!currentUser || currentUser.role !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem cadastrar usuários.",
+        });
       }
 
       const result = insertUserSchema.safeParse(req.body);
@@ -3083,7 +3695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.success) {
         return res.status(400).json({
           message: "Dados do usuário inválidos",
-          errors: result.error.errors
+          errors: result.error.errors,
         });
       }
 
@@ -3096,10 +3708,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: {
           timestamp: new Date().toISOString(),
           created_user_id: newUser.id,
-          created_user_email: newUser.email
+          created_user_email: newUser.email,
         },
-        ip_address: req.ip || '127.0.0.1',
-        user_agent: req.get('User-Agent') || 'Unknown'
+        ip_address: req.ip || "127.0.0.1",
+        user_agent: req.get("User-Agent") || "Unknown",
       });
 
       res.status(201).json({
@@ -3109,14 +3721,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: newUser.id,
           username: newUser.username,
           email: newUser.email,
-          role: newUser.role
-        }
+          role: newUser.role,
+        },
       });
     } catch (error: any) {
       console.error("Erro ao criar usuário:", error);
 
-      if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
-        return res.status(409).json({ message: "Email já cadastrado no sistema" });
+      if (
+        error.message?.includes("duplicate") ||
+        error.message?.includes("unique")
+      ) {
+        return res
+          .status(409)
+          .json({ message: "Email já cadastrado no sistema" });
       }
 
       res.status(500).json({ message: "Erro interno do servidor" });
@@ -3129,8 +3746,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const currentUser = userId ? await storage.getUser(userId) : null;
 
-      if (!currentUser || currentUser.role !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem listar usuários." });
+      if (!currentUser || currentUser.role !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem listar usuários.",
+        });
       }
 
       const users = await storage.getAllUsers();
@@ -3147,8 +3767,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const currentUser = userId ? await storage.getUser(userId) : null;
 
-      if (!currentUser || currentUser.role !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem deletar usuários." });
+      if (!currentUser || currentUser.role !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem deletar usuários.",
+        });
       }
 
       const targetUserId = parseInt(req.params.id);
@@ -3158,7 +3781,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (targetUserId === currentUser.id) {
-        return res.status(400).json({ message: "Você não pode deletar seu próprio usuário" });
+        return res
+          .status(400)
+          .json({ message: "Você não pode deletar seu próprio usuário" });
       }
 
       const deleted = await storage.deleteUser(targetUserId);
@@ -3173,15 +3798,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         operation: "delete_user",
         details: {
           timestamp: new Date().toISOString(),
-          deleted_user_id: targetUserId
+          deleted_user_id: targetUserId,
         },
-        ip_address: req.ip || '127.0.0.1',
-        user_agent: req.get('User-Agent') || 'Unknown'
+        ip_address: req.ip || "127.0.0.1",
+        user_agent: req.get("User-Agent") || "Unknown",
       });
 
       res.json({
         success: true,
-        message: "Usuário deletado com sucesso"
+        message: "Usuário deletado com sucesso",
       });
     } catch (error) {
       console.error("Erro ao deletar usuário:", error);
@@ -3191,36 +3816,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============= ROTAS PARA GERENCIAR CONTEÚDO DA PÁGINA INICIAL =============
 
-  // Obter conteúdo da página inicial (apenas cards publicados)
+  // Obter conteúdo da página inicial
   app.get("/api/homepage-content", async (req, res) => {
     try {
       const content = await storage.getHomepageContent();
       res.json(content);
     } catch (error) {
       console.error("Erro ao obter conteúdo da página inicial:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-
-  // Obter todos os cards (incluindo não publicados) para o painel administrativo
-  app.get("/api/admin/homepage-content", async (req, res) => {
-    try {
-      const userId = (req.session as any)?.user?.id;
-      const userRole = (req.session as any)?.user?.role;
-
-      if (!userId) {
-        return res.status(401).json({ message: "Usuário não autenticado" });
-      }
-
-      // Apenas admins podem acessar todos os cards
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem acessar todos os cards" });
-      }
-
-      const content = await storage.getAllHomepageContent();
-      res.json(content);
-    } catch (error) {
-      console.error("Erro ao obter todos os cards da homepage:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
@@ -3247,8 +3849,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apenas admins podem gerenciar conteúdo
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar conteúdo" });
+      if (userRole !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Apenas administradores podem gerenciar conteúdo" });
       }
 
       const contentData = req.body;
@@ -3272,14 +3876,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apenas admins podem gerenciar conteúdo
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar conteúdo" });
+      if (userRole !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Apenas administradores podem gerenciar conteúdo" });
       }
 
       const contentId = parseInt(req.params.id);
       const contentData = req.body;
 
-      const updatedContent = await storage.updateHomepageContent(contentId, contentData);
+      const updatedContent = await storage.updateHomepageContent(
+        contentId,
+        contentData
+      );
 
       if (!updatedContent) {
         return res.status(404).json({ message: "Conteúdo não encontrado" });
@@ -3303,8 +3912,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apenas admins podem gerenciar conteúdo
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar conteúdo" });
+      if (userRole !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Apenas administradores podem gerenciar conteúdo" });
       }
 
       const contentId = parseInt(req.params.id);
@@ -3332,12 +3943,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apenas admins podem gerenciar configurações
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar configurações" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar configurações",
+        });
       }
 
       const settingsData = req.body;
-      const updatedSettings = await storage.updateHomepageSettings(settingsData);
+      const updatedSettings = await storage.updateHomepageSettings(
+        settingsData
+      );
 
       res.json(updatedSettings);
     } catch (error) {
@@ -3369,8 +3984,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar informações de contato" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Apenas administradores podem gerenciar informações de contato",
+        });
       }
 
       const contactData = req.body;
@@ -3380,7 +3998,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let contactInfo;
       if (existingContact) {
-        contactInfo = await storage.updateContactInfo(existingContact.id, contactData);
+        contactInfo = await storage.updateContactInfo(
+          existingContact.id,
+          contactData
+        );
       } else {
         contactInfo = await storage.createContactInfo(contactData);
       }
@@ -3413,8 +4034,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar links do rodapé" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar links do rodapé",
+        });
       }
 
       const linkData = req.body;
@@ -3437,8 +4060,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar links do rodapé" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar links do rodapé",
+        });
       }
 
       const linkId = parseInt(req.params.id);
@@ -3467,8 +4092,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar links do rodapé" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar links do rodapé",
+        });
       }
 
       const linkId = parseInt(req.params.id);
@@ -3506,8 +4133,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar redes sociais" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar redes sociais",
+        });
       }
 
       const socialData = req.body;
@@ -3530,14 +4159,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar redes sociais" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar redes sociais",
+        });
       }
 
       const socialId = parseInt(req.params.id);
       const socialData = req.body;
 
-      const updatedSocial = await storage.updateSocialNetwork(socialId, socialData);
+      const updatedSocial = await storage.updateSocialNetwork(
+        socialId,
+        socialData
+      );
 
       if (!updatedSocial) {
         return res.status(404).json({ message: "Rede social não encontrada" });
@@ -3560,8 +4194,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário não autenticado" });
       }
 
-      if (userRole !== 'admin') {
-        return res.status(403).json({ message: "Apenas administradores podem gerenciar redes sociais" });
+      if (userRole !== "admin") {
+        return res.status(403).json({
+          message: "Apenas administradores podem gerenciar redes sociais",
+        });
       }
 
       const socialId = parseInt(req.params.id);
@@ -3617,7 +4253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/form-validations", async (req, res) => {
     try {
       const deletedCount = await storage.deleteAllFormValidations();
-      res.json({ success: true, message: `${deletedCount} validações deletadas`, count: deletedCount });
+      res.json({
+        success: true,
+        message: `${deletedCount} validações deletadas`,
+        count: deletedCount,
+      });
     } catch (error: any) {
       console.error("Erro ao deletar todas as validações:", error);
       res.status(500).json({ error: error.message });
@@ -3688,7 +4328,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/responsible-sectors", async (req, res) => {
     try {
       const responsibleSector = insertResponsibleSectorSchema.parse(req.body);
-      const newResponsibleSector = await storage.createResponsibleSector(responsibleSector);
+      const newResponsibleSector = await storage.createResponsibleSector(
+        responsibleSector
+      );
       res.json(newResponsibleSector);
     } catch (error: any) {
       console.error("Erro ao criar setor responsável:", error);
@@ -3704,6 +4346,518 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Erro ao buscar assuntos principais:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Backblaze B2 Configuration API
+  app.get("/api/backblaze/config", async (req, res) => {
+    try {
+      console.log("🔧 Fornecendo configuração Backblaze B2 para o frontend...");
+
+      // Verificar se todas as variáveis de ambiente estão configuradas
+      const requiredVars = [
+        "BACKBLAZE_B2_ACCOUNT_ID",
+        "BACKBLAZE_B2_APPLICATION_KEY_ID",
+        "BACKBLAZE_B2_APPLICATION_KEY",
+        "BACKBLAZE_B2_BUCKET_NAME",
+        "BACKBLAZE_B2_BUCKET_ID",
+      ];
+
+      const missingVars = requiredVars.filter(
+        (varName) => !process.env[varName]
+      );
+
+      if (missingVars.length > 0) {
+        console.error("❌ Variáveis de ambiente ausentes:", missingVars);
+        return res.status(500).json({
+          success: false,
+          error: "Configuração incompleta do Backblaze B2",
+          missingVars,
+        });
+      }
+
+      const config = {
+        accountId: process.env.BACKBLAZE_B2_ACCOUNT_ID,
+        applicationKeyId: process.env.BACKBLAZE_B2_APPLICATION_KEY_ID,
+        applicationKey: process.env.BACKBLAZE_B2_APPLICATION_KEY,
+        bucketName: process.env.BACKBLAZE_B2_BUCKET_NAME,
+        bucketId: process.env.BACKBLAZE_B2_BUCKET_ID,
+        endpoint:
+          process.env.BACKBLAZE_B2_ENDPOINT || "https://api002.backblazeb2.com",
+      };
+
+      console.log("✅ Configuração Backblaze B2 fornecida:", {
+        accountId: config.accountId ? "✅ Configurado" : "❌ Não configurado",
+        applicationKeyId: config.applicationKeyId
+          ? "✅ Configurado"
+          : "❌ Não configurado",
+        applicationKey: config.applicationKey
+          ? "✅ Configurado"
+          : "❌ Não configurado",
+        bucketName: config.bucketName ? "✅ Configurado" : "❌ Não configurado",
+      });
+
+      res.json({
+        success: true,
+        config,
+      });
+    } catch (error: any) {
+      console.error("❌ Erro ao fornecer configuração Backblaze:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Erro interno do servidor",
+      });
+    }
+  });
+
+  // Backblaze B2 List Files API (simplificada)
+  app.post("/api/backblaze/list-files", async (req, res) => {
+    try {
+      console.log("📋 API: Listagem de arquivos Backblaze B2 iniciada");
+
+      const { prefix, maxKeys } = req.body;
+
+      // Usar as credenciais do ambiente
+      const authResponse = await fetch(
+        `${
+          process.env.BACKBLAZE_B2_ENDPOINT || "https://api002.backblazeb2.com"
+        }/b2api/v2/b2_authorize_account`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Basic ${Buffer.from(
+              `${process.env.BACKBLAZE_B2_APPLICATION_KEY_ID}:${process.env.BACKBLAZE_B2_APPLICATION_KEY}`
+            ).toString("base64")}`,
+          },
+        }
+      );
+
+      if (!authResponse.ok) {
+        throw new Error("Falha na autenticação com Backblaze B2");
+      }
+
+      const authData = await authResponse.json();
+
+      // Listar arquivos
+      const listResponse = await fetch(
+        `${authData.apiUrl}/b2api/v2/b2_list_file_names`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: authData.authorizationToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bucketId: process.env.BACKBLAZE_B2_BUCKET_ID,
+            prefix: prefix,
+            maxFileCount: maxKeys || 100,
+          }),
+        }
+      );
+
+      if (!listResponse.ok) {
+        throw new Error("Falha ao listar arquivos");
+      }
+
+      const listData = await listResponse.json();
+      console.log("✅ Listagem de arquivos Backblaze B2 concluída");
+
+      // Processar arquivos e gerar URLs de download
+      const files = listData.files.map((file: any) => ({
+        ...file,
+        downloadUrl: `https://f004.backblazeb2.com/file/${process.env.BACKBLAZE_B2_BUCKET_NAME}/${file.fileName}`,
+      }));
+
+      res.json({
+        success: true,
+        files: files,
+      });
+    } catch (error: any) {
+      console.error("❌ Erro na listagem de arquivos Backblaze B2:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Erro interno do servidor",
+      });
+    }
+  });
+
+  // Backblaze B2 Upload API (simplificada)
+  app.post("/api/backblaze/upload", upload.single("file"), async (req, res) => {
+    try {
+      console.log("📤 API: Upload para Backblaze B2 iniciado");
+
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          error: "Arquivo não fornecido",
+        });
+      }
+
+      const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : {};
+
+      // Autenticar com Backblaze B2
+      const authResponse = await fetch(
+        `${
+          process.env.BACKBLAZE_B2_ENDPOINT || "https://api002.backblazeb2.com"
+        }/b2api/v2/b2_authorize_account`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Basic ${Buffer.from(
+              `${process.env.BACKBLAZE_B2_APPLICATION_KEY_ID}:${process.env.BACKBLAZE_B2_APPLICATION_KEY}`
+            ).toString("base64")}`,
+          },
+        }
+      );
+
+      if (!authResponse.ok) {
+        throw new Error("Falha na autenticação com Backblaze B2");
+      }
+
+      const authData = await authResponse.json();
+
+      // Obter URL de upload
+      const uploadUrlResponse = await fetch(
+        `${authData.apiUrl}/b2api/v2/b2_get_upload_url`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: authData.authorizationToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bucketId: process.env.BACKBLAZE_B2_BUCKET_ID,
+          }),
+        }
+      );
+
+      if (!uploadUrlResponse.ok) {
+        throw new Error("Falha ao obter URL de upload");
+      }
+
+      const uploadUrlData = await uploadUrlResponse.json();
+
+      // Calcular SHA1 do arquivo
+      const crypto = await import("crypto");
+      const sha1Hash = crypto
+        .createHash("sha1")
+        .update(file.buffer)
+        .digest("hex");
+
+      // Fazer upload
+      const fileName = `uploads/${Date.now()}_${file.originalname}`;
+      const uploadResponse = await fetch(uploadUrlData.uploadUrl, {
+        method: "POST",
+        headers: {
+          Authorization: uploadUrlData.authorizationToken,
+          "Content-Type": file.mimetype || "application/octet-stream",
+          "X-Bz-File-Name": fileName,
+          "Content-Length": file.size.toString(),
+          "X-Bz-Content-Sha1": sha1Hash,
+        },
+        body: file.buffer,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`Falha no upload: ${errorText}`);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log("✅ Upload para Backblaze B2 concluído:", uploadResult);
+
+      // Gerar URL de download
+      const downloadUrl = `https://f004.backblazeb2.com/file/${process.env.BACKBLAZE_B2_BUCKET_NAME}/${fileName}`;
+
+      res.json({
+        success: true,
+        fileId: uploadResult.fileId,
+        fileName: uploadResult.fileName,
+        contentLength: uploadResult.contentLength,
+        contentSha1: uploadResult.contentSha1,
+        contentMd5: uploadResult.contentMd5,
+        downloadUrl: downloadUrl,
+      });
+    } catch (error: any) {
+      console.error("❌ Erro no upload para Backblaze B2:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Erro interno do servidor",
+      });
+    }
+  });
+
+  // Backblaze B2 Upload Test API
+  app.post(
+    "/api/documents/upload-test",
+    upload.single("file"),
+    async (req, res) => {
+      try {
+        console.log("🧪 API: Upload de teste para Backblaze B2 iniciado");
+        console.log("📋 Dados da requisição:", {
+          body: req.body,
+          file: req.file ? "Arquivo presente" : "Arquivo ausente",
+          headers: req.headers["content-type"],
+        });
+
+        // Verificar se é um teste
+        const isTest = req.body.test === "true";
+        if (!isTest) {
+          console.log("❌ Teste não autorizado - parâmetro test não é true");
+          return res.status(400).json({
+            success: false,
+            message: "Esta API é apenas para testes",
+          });
+        }
+
+        // Processar arquivo de teste
+        const file = req.file;
+        if (!file) {
+          return res.status(400).json({
+            success: false,
+            message: "Arquivo não fornecido",
+          });
+        }
+
+        console.log("📁 Arquivo de teste recebido:", {
+          originalname: file.originalname,
+          filename: file.filename,
+          mimetype: file.mimetype,
+          size: file.size,
+          buffer: file.buffer ? "Buffer presente" : "Buffer ausente",
+        });
+
+        // 1. Autenticar com Backblaze B2
+        const authResponse = await fetch(
+          `${
+            process.env.BACKBLAZE_B2_ENDPOINT ||
+            "https://api002.backblazeb2.com"
+          }/b2api/v2/b2_authorize_account`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Basic ${Buffer.from(
+                `${process.env.BACKBLAZE_B2_APPLICATION_KEY_ID}:${process.env.BACKBLAZE_B2_APPLICATION_KEY}`
+              ).toString("base64")}`,
+            },
+          }
+        );
+
+        if (!authResponse.ok) {
+          throw new Error(
+            `Falha na autenticação Backblaze: ${authResponse.status}`
+          );
+        }
+
+        const authData = await authResponse.json();
+        const { authorizationToken, apiUrl } = authData;
+
+        // 2. Obter URL de upload
+        const uploadUrlResponse = await fetch(
+          `${apiUrl}/b2api/v2/b2_get_upload_url`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: authorizationToken,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              bucketId: process.env.BACKBLAZE_B2_BUCKET_ID,
+            }),
+          }
+        );
+
+        if (!uploadUrlResponse.ok) {
+          throw new Error(
+            `Falha ao obter URL de upload: ${uploadUrlResponse.status}`
+          );
+        }
+
+        const uploadUrlData = await uploadUrlResponse.json();
+
+        // 3. Fazer upload do arquivo de teste
+        const fileName = `testes/${Date.now()}_${
+          file.originalname || "test-file"
+        }`;
+
+        // Verificar se temos o buffer do arquivo
+        if (!file.buffer) {
+          throw new Error("Buffer do arquivo não encontrado");
+        }
+
+        // Calcular SHA1 real do arquivo
+        const crypto = await import("crypto");
+        const sha1Hash = crypto
+          .createHash("sha1")
+          .update(file.buffer)
+          .digest("hex");
+
+        console.log("📤 Fazendo upload para Backblaze B2:", {
+          fileName,
+          size: file.size,
+          sha1: sha1Hash,
+          uploadUrl: uploadUrlData.uploadUrl,
+        });
+
+        const uploadResponse = await fetch(uploadUrlData.uploadUrl, {
+          method: "POST",
+          headers: {
+            Authorization: uploadUrlData.authorizationToken,
+            "Content-Type": file.mimetype || "application/octet-stream",
+            "X-Bz-File-Name": fileName,
+            "Content-Length": file.size.toString(),
+            "X-Bz-Content-Sha1": sha1Hash,
+          },
+          body: file.buffer,
+        });
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.text();
+          throw new Error(
+            `Falha no upload: ${uploadResponse.status} - ${errorData}`
+          );
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log("✅ Upload de teste bem-sucedido:", uploadResult);
+
+        // 4. Deletar arquivo de teste após alguns segundos (limpeza automática)
+        setTimeout(async () => {
+          try {
+            const deleteResponse = await fetch(
+              `${apiUrl}/b2api/v2/b2_delete_file_version`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: authorizationToken,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  fileName: uploadResult.fileName,
+                  fileId: uploadResult.fileId,
+                }),
+              }
+            );
+
+            if (deleteResponse.ok) {
+              console.log("🧹 Arquivo de teste limpo automaticamente");
+            }
+          } catch (error) {
+            console.warn(
+              "⚠️ Falha na limpeza automática do arquivo de teste:",
+              error
+            );
+          }
+        }, 10000); // 10 segundos
+
+        res.json({
+          success: true,
+          message: "Upload de teste realizado com sucesso",
+          file: {
+            name: file.name,
+            size: file.size,
+            type: file.mimetype,
+            backblazeName: fileName,
+            backblazeId: uploadResult.fileId,
+            url: uploadResult.fileName,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("❌ API: Erro no upload de teste:", error);
+        res.status(500).json({
+          success: false,
+          message:
+            error instanceof Error ? error.message : "Erro interno do servidor",
+        });
+      }
+    }
+  );
+
+  // Backblaze B2 Delete File API
+  app.post("/api/backblaze/delete-file", async (req, res) => {
+    try {
+      const { fileId, fileName, backblazeUrl } = req.body;
+
+      if (!fileId || !fileName) {
+        return res.status(400).json({
+          success: false,
+          message: "fileId e fileName são obrigatórios",
+        });
+      }
+
+      console.log("🗑️ API Backblaze: Deletando arquivo:", {
+        fileId,
+        fileName,
+        backblazeUrl,
+      });
+
+      // 1. Autenticar com Backblaze B2
+      const authResponse = await fetch(
+        `${
+          process.env.BACKBLAZE_B2_ENDPOINT || "https://api002.backblazeb2.com"
+        }/b2api/v2/b2_authorize_account`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Basic ${Buffer.from(
+              `${process.env.BACKBLAZE_B2_APPLICATION_KEY_ID}:${process.env.BACKBLAZE_B2_APPLICATION_KEY}`
+            ).toString("base64")}`,
+          },
+        }
+      );
+
+      if (!authResponse.ok) {
+        throw new Error(
+          `Falha na autenticação Backblaze: ${authResponse.status}`
+        );
+      }
+
+      const authData = await authResponse.json();
+      const { authorizationToken, apiUrl } = authData;
+
+      // 2. Deletar arquivo usando a API do Backblaze
+      const deleteResponse = await fetch(
+        `${apiUrl}/b2api/v2/b2_delete_file_version`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: authorizationToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileId: fileId,
+            fileName: fileName,
+          }),
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.text();
+        throw new Error(
+          `Falha ao deletar arquivo no Backblaze: ${deleteResponse.status} - ${errorData}`
+        );
+      }
+
+      const deleteResult = await deleteResponse.json();
+      console.log(
+        "✅ API Backblaze: Arquivo deletado com sucesso:",
+        deleteResult
+      );
+
+      res.json({
+        success: true,
+        message: "Arquivo deletado com sucesso do Backblaze B2",
+        result: deleteResult,
+      });
+    } catch (error) {
+      console.error("❌ API Backblaze: Erro ao deletar arquivo:", error);
+      res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Erro interno do servidor",
+      });
     }
   });
 
@@ -3843,13 +4997,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (description) updateData.description = description;
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "Nenhum campo válido para atualizar" });
+        return res
+          .status(400)
+          .json({ error: "Nenhum campo válido para atualizar" });
       }
 
       const updated = await storage.updateConfidentialityLevel(id, updateData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Nível de confidencialidade não encontrado" });
+        return res
+          .status(404)
+          .json({ error: "Nível de confidencialidade não encontrado" });
       }
 
       res.json(updated);
@@ -3865,10 +5023,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteConfidentialityLevel(id);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Nível de confidencialidade não encontrado" });
+        return res
+          .status(404)
+          .json({ error: "Nível de confidencialidade não encontrado" });
       }
 
-      res.json({ success: true, message: "Nível de confidencialidade deletado com sucesso" });
+      res.json({
+        success: true,
+        message: "Nível de confidencialidade deletado com sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao deletar nível de confidencialidade:", error);
       res.status(500).json({ error: error.message });
@@ -3885,13 +5048,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (description) updateData.description = description;
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "Nenhum campo válido para atualizar" });
+        return res
+          .status(400)
+          .json({ error: "Nenhum campo válido para atualizar" });
       }
 
       const updated = await storage.updateAvailabilityOption(id, updateData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Opção de disponibilidade não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Opção de disponibilidade não encontrada" });
       }
 
       res.json(updated);
@@ -3907,10 +5074,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteAvailabilityOption(id);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Opção de disponibilidade não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Opção de disponibilidade não encontrada" });
       }
 
-      res.json({ success: true, message: "Opção de disponibilidade deletada com sucesso" });
+      res.json({
+        success: true,
+        message: "Opção de disponibilidade deletada com sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao deletar opção de disponibilidade:", error);
       res.status(500).json({ error: error.message });
@@ -3927,13 +5099,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (description) updateData.description = description;
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "Nenhum campo válido para atualizar" });
+        return res
+          .status(400)
+          .json({ error: "Nenhum campo válido para atualizar" });
       }
 
       const updated = await storage.updateLanguageOption(id, updateData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Opção de idioma não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Opção de idioma não encontrada" });
       }
 
       res.json(updated);
@@ -3949,10 +5125,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteLanguageOption(id);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Opção de idioma não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Opção de idioma não encontrada" });
       }
 
-      res.json({ success: true, message: "Opção de idioma deletada com sucesso" });
+      res.json({
+        success: true,
+        message: "Opção de idioma deletada com sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao deletar opção de idioma:", error);
       res.status(500).json({ error: error.message });
@@ -3969,13 +5150,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (description) updateData.description = description;
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "Nenhum campo válido para atualizar" });
+        return res
+          .status(400)
+          .json({ error: "Nenhum campo válido para atualizar" });
       }
 
       const updated = await storage.updateRightsOption(id, updateData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Opção de direitos não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Opção de direitos não encontrada" });
       }
 
       res.json(updated);
@@ -3991,10 +5176,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteRightsOption(id);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Opção de direitos não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Opção de direitos não encontrada" });
       }
 
-      res.json({ success: true, message: "Opção de direitos deletada com sucesso" });
+      res.json({
+        success: true,
+        message: "Opção de direitos deletada com sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao deletar opção de direitos:", error);
       res.status(500).json({ error: error.message });
@@ -4011,13 +5201,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (description) updateData.description = description;
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "Nenhum campo válido para atualizar" });
+        return res
+          .status(400)
+          .json({ error: "Nenhum campo válido para atualizar" });
       }
 
       const updated = await storage.updateDocumentAuthority(id, updateData);
 
       if (!updated) {
-        return res.status(404).json({ error: "Autoridade de documento não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Autoridade de documento não encontrada" });
       }
 
       res.json(updated);
@@ -4033,10 +5227,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteDocumentAuthority(id);
 
       if (!deleted) {
-        return res.status(404).json({ error: "Autoridade de documento não encontrada" });
+        return res
+          .status(404)
+          .json({ error: "Autoridade de documento não encontrada" });
       }
 
-      res.json({ success: true, message: "Autoridade de documento deletada com sucesso" });
+      res.json({
+        success: true,
+        message: "Autoridade de documento deletada com sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao deletar autoridade de documento:", error);
       res.status(500).json({ error: error.message });
@@ -4044,21 +5243,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Storage monitoring endpoint
-  app.get('/api/storage/stats', async (req, res) => {
+  app.get("/api/storage/stats", async (req, res) => {
     try {
-      const { storageMonitor } = await import('./storage-monitor');
+      const { storageMonitor } = await import("./storage-monitor");
       const stats = await storageMonitor.getFullStorageStats();
       res.json(stats);
     } catch (error) {
-      console.error('❌ Erro ao obter estatísticas de armazenamento:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      console.error("❌ Erro ao obter estatísticas de armazenamento:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
 
   // ============= MONITORAMENTO DE LOGIN =============
 
   // Importar serviço de monitoramento
-  const { loginMonitoringService } = await import('./services/loginMonitoringService');
+  const { loginMonitoringService } = await import(
+    "./services/loginMonitoringService"
+  );
 
   // Obter estatísticas de login
   app.get("/api/login-stats", async (req, res) => {
@@ -4066,8 +5267,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const userRole = (req.session as any)?.user?.role;
 
-      if (!userId || userRole !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem acessar estatísticas de login." });
+      if (!userId || userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem acessar estatísticas de login.",
+        });
       }
 
       const days = parseInt(req.query.days as string) || 30;
@@ -4075,7 +5279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         period_days: days,
-        ...stats
+        ...stats,
       });
     } catch (error) {
       console.error("Erro ao obter estatísticas de login:", error);
@@ -4089,8 +5293,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const userRole = (req.session as any)?.user?.role;
 
-      if (!userId || userRole !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem acessar sessões ativas." });
+      if (!userId || userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem acessar sessões ativas.",
+        });
       }
 
       const sessions = await loginMonitoringService.getActiveSessions();
@@ -4107,8 +5314,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const userRole = (req.session as any)?.user?.role;
 
-      if (!userId || userRole !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem acessar alertas de segurança." });
+      if (!userId || userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem acessar alertas de segurança.",
+        });
       }
 
       const limit = parseInt(req.query.limit as string) || 50;
@@ -4126,8 +5336,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const userRole = (req.session as any)?.user?.role;
 
-      if (!userId || userRole !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem acessar histórico de logins." });
+      if (!userId || userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem acessar histórico de logins.",
+        });
       }
 
       const limit = parseInt(req.query.limit as string) || 100;
@@ -4145,18 +5358,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const userRole = (req.session as any)?.user?.role;
 
-      if (!userId || userRole !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem resolver alertas." });
+      if (!userId || userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem resolver alertas.",
+        });
       }
 
       const alertId = parseInt(req.params.id);
 
-      const { securityAlerts } = await import('../../shared/schema');
-      await db.update(securityAlerts)
+      const { securityAlerts } = await import("../../shared/schema");
+      await db
+        .update(securityAlerts)
         .set({
           is_resolved: true,
           resolved_by: userId,
-          resolved_at: new Date()
+          resolved_at: new Date(),
         })
         .where(eq(securityAlerts.id, alertId));
 
@@ -4173,8 +5390,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any)?.user?.id;
       const userRole = (req.session as any)?.user?.role;
 
-      if (!userId || userRole !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores podem terminar sessões." });
+      if (!userId || userRole !== "admin") {
+        return res.status(403).json({
+          message:
+            "Acesso negado. Apenas administradores podem terminar sessões.",
+        });
       }
 
       const sessionId = req.params.sessionId;

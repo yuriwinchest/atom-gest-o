@@ -1,0 +1,4 @@
+Este é um arquivo de teste para validar a conexão com o Backblaze B2.
+Data: 24/08/2025
+Hora: 06:48
+Teste: Conexão e upload via API

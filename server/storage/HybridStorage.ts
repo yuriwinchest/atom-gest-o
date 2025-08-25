@@ -1,13 +1,4 @@
-import { eq, sql, inArray } from "drizzle-orm";
-import { supabase, supabaseAdmin, testSupabaseConnection, type FileRecord, type InsertFileRecord } from "../supabase";
-import {
-  users, documents as documentsTable, news, features, systemStats,
-  documentRelations, operationLogs, documentShares, homepage_content,
-  homepage_settings, footerLinks, socialNetworks, contactInfo,
-  formValidations, documentTypes, publicOrgans, responsibleSectors,
-  mainSubjects, confidentialityLevels, availabilityOptions,
-  languageOptions, rightsOptions, documentAuthorities
-} from "@shared/schema";
+import { supabase, supabaseAdmin, testSupabaseConnection, type InsertFileRecord } from "../supabase";
 import { IStorage } from "./types";
 import { extractTextFromDocument, mapFileToDocument } from "./utils";
 
@@ -1054,12 +1045,126 @@ export class HybridStorage implements IStorage {
   // Implementar outros métodos necessários...
   // Por brevidade, vou retornar arrays vazios para os métodos não implementados
 
-  async getResponsibleSectors(): Promise<any[]> { return []; }
-  async createResponsibleSector(sector: any): Promise<any> { return { id: Date.now(), ...sector }; }
-  async getMainSubjects(): Promise<any[]> { return []; }
-  async createMainSubject(subject: any): Promise<any> { return { id: Date.now(), ...subject }; }
-  async getConfidentialityLevels(): Promise<any[]> { return []; }
-  async createConfidentialityLevel(level: any): Promise<any> { return { id: Date.now(), ...level }; }
+  async getResponsibleSectors(): Promise<any[]> {
+    try {
+      console.log('🏢 HybridStorage: Buscando setores responsáveis no Supabase...');
+
+      const { data: sectors, error } = await supabase
+        .from('responsible_sectors')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('❌ Erro ao buscar setores responsáveis:', error);
+        return [];
+      }
+
+      console.log(`✅ HybridStorage: ${sectors?.length || 0} setores encontrados`);
+      return sectors || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar setores responsáveis:', error);
+      return [];
+    }
+  }
+  async createResponsibleSector(sector: any): Promise<any> {
+    try {
+      console.log('🏢 HybridStorage: Criando setor responsável no Supabase:', sector.name);
+
+      const { data: newSector, error } = await supabase
+        .from('responsible_sectors')
+        .insert([{ name: sector.name }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ HybridStorage: Setor responsável criado:', newSector);
+      return newSector;
+    } catch (error) {
+      console.error('❌ Erro ao criar setor responsável:', error);
+      throw error;
+    }
+  }
+  async getMainSubjects(): Promise<any[]> {
+    try {
+      console.log('📋 HybridStorage: Buscando assuntos principais no Supabase...');
+
+      const { data: subjects, error } = await supabase
+        .from('main_subjects')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('❌ Erro ao buscar assuntos principais:', error);
+        return [];
+      }
+
+      console.log(`✅ HybridStorage: ${subjects?.length || 0} assuntos principais encontrados`);
+      return subjects || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar assuntos principais:', error);
+      return [];
+    }
+  }
+  async createMainSubject(subject: any): Promise<any> {
+    try {
+      console.log('📋 HybridStorage: Criando assunto principal no Supabase:', subject.name);
+
+      const { data: newSubject, error } = await supabase
+        .from('main_subjects')
+        .insert([{ name: subject.name }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ HybridStorage: Assunto principal criado:', newSubject);
+      return newSubject;
+    } catch (error) {
+      console.error('❌ Erro ao criar assunto principal:', error);
+      throw error;
+    }
+  }
+  async getConfidentialityLevels(): Promise<any[]> {
+    try {
+      console.log('🔒 HybridStorage: Buscando níveis de confidencialidade no Supabase...');
+
+      const { data: levels, error } = await supabase
+        .from('confidentiality_levels')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('❌ Erro ao buscar níveis de confidencialidade:', error);
+        return [];
+      }
+
+      console.log(`✅ HybridStorage: ${levels?.length || 0} níveis encontrados`);
+      return levels || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar níveis de confidencialidade:', error);
+      return [];
+    }
+  }
+  async createConfidentialityLevel(level: any): Promise<any> {
+    try {
+      console.log('🔒 HybridStorage: Criando nível de confidencialidade no Supabase:', level.name);
+
+      const { data: newLevel, error } = await supabase
+        .from('confidentiality_levels')
+        .insert([{ name: level.name }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ HybridStorage: Nível de confidencialidade criado:', newLevel);
+      return newLevel;
+    } catch (error) {
+      console.error('❌ Erro ao criar nível de confidencialidade:', error);
+      throw error;
+    }
+  }
   async getAvailabilityOptions(): Promise<any[]> { return []; }
   async createAvailabilityOption(option: any): Promise<any> { return { id: Date.now(), ...option }; }
   async getLanguageOptions(): Promise<any[]> { return []; }

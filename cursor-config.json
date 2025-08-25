@@ -1,0 +1,32 @@
+{
+  "cursor": {
+    "api": {
+      "key": "4Ktb5kAjvZSyIerzhvt3WIdJULqcE5Bk",
+      "url": "https://api.cursor.sh",
+      "model": "gpt-4",
+      "maxTokens": 4000
+    },
+    "project": {
+      "name": "atom-gest-o",
+      "description": "Sistema de gestão de documentos com upload, categorização e interface moderna",
+      "language": "pt-BR",
+      "framework": "React + Express + Supabase"
+    },
+    "ai": {
+      "enableAssistance": true,
+      "enableCodeCompletion": true,
+      "enableRefactoring": true,
+      "enableDocumentation": true,
+      "preferredLanguage": "portuguese"
+    },
+    "development": {
+      "autoFormat": true,
+      "autoImport": true,
+      "typeChecking": true,
+      "linting": true,
+      "testing": true
+    }
+  }
+}
+
+

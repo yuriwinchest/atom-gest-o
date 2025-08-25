@@ -1,12 +1,28 @@
+import type { InsertDocumentAnalytics } from '@shared/schema';
+import { document_analytics, search_analytics } from '@shared/schema';
 import { db } from './db';
-import { search_analytics, document_analytics } from '@shared/schema';
-import type { InsertSearchAnalytics, InsertDocumentAnalytics } from '@shared/schema';
 
 export class AnalyticsTracker {
   // Função para registrar uma busca
-  static async trackSearch(searchData: Omit<InsertSearchAnalytics, 'id' | 'created_at'>) {
+  static async trackSearch(searchData: {
+    search_term: string;
+    search_results_count?: number;
+    referrer?: string;
+    user_ip?: string;
+    user_agent?: string;
+    session_id?: string;
+    is_authenticated?: boolean;
+  }) {
     try {
-      await db.insert(search_analytics).values(searchData);
+      await db.insert(search_analytics).values({
+        search_term: searchData.search_term,
+        search_results_count: searchData.search_results_count || 0,
+        referrer: searchData.referrer || null,
+        user_ip: searchData.user_ip || 'unknown',
+        user_agent: searchData.user_agent || 'unknown',
+        session_id: searchData.session_id || 'unknown',
+        is_authenticated: searchData.is_authenticated || false
+      });
       console.log('📊 Busca registrada:', searchData.search_term);
     } catch (error) {
       console.error('❌ Erro ao registrar busca:', error);
@@ -69,16 +85,16 @@ export class AnalyticsTracker {
   static async getDocumentStats() {
     try {
       const allDocumentActions = await db.select().from(document_analytics);
-      
+
       const totalViews = allDocumentActions.filter(a => a.action_type === 'view').length;
       const totalDownloads = allDocumentActions.filter(a => a.action_type === 'download').length;
-      
+
       const today = new Date().toISOString().split('T')[0];
-      const viewsToday = allDocumentActions.filter(a => 
+      const viewsToday = allDocumentActions.filter(a =>
         a.action_type === 'view' && a.created_at?.toISOString().split('T')[0] === today
       ).length;
-      
-      const downloadsToday = allDocumentActions.filter(a => 
+
+      const downloadsToday = allDocumentActions.filter(a =>
         a.action_type === 'download' && a.created_at?.toISOString().split('T')[0] === today
       ).length;
 

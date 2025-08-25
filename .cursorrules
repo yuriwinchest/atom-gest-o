@@ -1,0 +1,43 @@
+# Configurações do Cursor para o projeto atom-gest-o
+
+## Configuração da API
+- API Key: 4Ktb5kAjvZSyIerzhvt3WIdJULqcE5Bk
+- Modelo: GPT-4
+- Tokens máximos: 4000
+
+## Regras de Desenvolvimento
+- Sempre responder em português
+- Seguir padrões de código limpo e legível
+- Usar TypeScript para tipagem forte
+- Implementar tratamento de erros adequado
+- Documentar funções e componentes importantes
+
+## Estrutura do Projeto
+- Frontend: React + TypeScript + Tailwind CSS
+- Backend: Express.js + Node.js
+- Banco de dados: Supabase (PostgreSQL)
+- Storage: Backblaze B2 + Supabase Storage
+- Build: Vite + ESBuild
+
+## Padrões de Código
+- Usar camelCase para variáveis e funções
+- Usar PascalCase para componentes React
+- Usar kebab-case para arquivos
+- Implementar validação com Zod
+- Usar React Query para gerenciamento de estado do servidor
+
+## Funcionalidades Principais
+- Sistema de gestão de documentos
+- Upload e download de arquivos
+- Sistema de categorias
+- Autenticação e autorização
+- Interface responsiva e moderna
+
+## Configurações de Segurança
+- Implementar RLS (Row Level Security) no Supabase
+- Validar todas as entradas do usuário
+- Usar variáveis de ambiente para credenciais
+- Implementar rate limiting
+- Logs de auditoria para operações sensíveis
+
+

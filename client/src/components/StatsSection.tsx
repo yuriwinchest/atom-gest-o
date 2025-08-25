@@ -1,42 +1,63 @@
-import { useQuery } from "@tanstack/react-query";
-import { FileText, Users, Search, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { Download, FileText, Users } from "lucide-react";
+import { useEffect } from "react";
+
+interface StatsData {
+  documentos: number;
+  visitantes: number;
+  busca: number;
+  downloads: number;
+  visualizacoes: number;
+  buscasHoje: number;
+  downloadsHoje: number;
+  visualizacoesHoje: number;
+  documentos_categoria: number;
+  imagens_categoria: number;
+  planilhas_categoria: number;
+  apresentacoes_categoria: number;
+}
 
 export default function StatsSection() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, refetch } = useQuery<StatsData>({
     queryKey: ["/api/stats"],
-    staleTime: 5 * 60 * 1000, // 5 minutos de cache
-    gcTime: 10 * 60 * 1000, // 10 minutos no cache
-    refetchInterval: 2 * 60 * 1000, // Atualizar a cada 2 minutos
-    refetchIntervalInBackground: false, // NÃO atualizar sem foco na aba
+    staleTime: 0, // 0 segundos - SEMPRE considerar dados obsoletos
+    gcTime: 0, // 0 segundos - SEMPRE limpar cache
+    refetchInterval: 5 * 1000, // Atualizar a cada 5 segundos
+    refetchIntervalInBackground: true, // Atualizar mesmo sem foco na aba
+    refetchOnWindowFocus: true, // Atualizar quando a janela ganhar foco
+    refetchOnMount: true, // Atualizar sempre que o componente montar
+    refetchOnReconnect: true, // Atualizar quando reconectar
   });
+
+  // Forçar atualização a cada 3 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   const statsConfig = [
     {
       icon: FileText,
-      value: stats?.documentos || 0,
+      value: stats?.documentos ?? 0,
       label: "Documentos",
       color: "text-brand-blue",
       bgColor: "bg-blue-100",
     },
     {
       icon: Users,
-      value: stats?.visitantes || 0,
+      value: stats?.visitantes ?? 0,
       label: "Visitas",
       color: "text-green-600",
       bgColor: "bg-green-100",
     },
     {
-      icon: Search,
-      value: stats?.busca || 0,
-      label: "Buscas",
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-    },
-    {
       icon: Download,
-      value: stats?.downloads || 0,
+      value: stats?.downloads ?? 0,
       label: "Downloads",
       color: "text-orange-600",
       bgColor: "bg-orange-100",
@@ -51,8 +72,8 @@ export default function StatsSection() {
             <Skeleton className="h-6 sm:h-8 w-48 sm:w-64 mx-auto mb-3 sm:mb-4" />
             <Skeleton className="h-3 sm:h-4 w-56 sm:w-80 mx-auto" />
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
+            {[1, 2, 3].map((i) => (
               <div key={i} className="text-center">
                 <Skeleton className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl sm:rounded-2xl mx-auto mb-3 sm:mb-4" />
                 <Skeleton className="h-6 sm:h-7 md:h-8 w-12 sm:w-14 md:w-16 mx-auto mb-2" />
@@ -75,7 +96,7 @@ export default function StatsSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
           {statsConfig.map((stat, index) => {
             const Icon = stat.icon;
             return (

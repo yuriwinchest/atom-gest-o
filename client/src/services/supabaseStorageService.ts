@@ -101,11 +101,17 @@ class SupabaseStorageService {
 
   // Gerar nome único para o arquivo
   private generateUniqueFileName(originalName: string, userId?: string): string {
+    // Verificar se o nome é válido
+    if (!originalName || typeof originalName !== 'string') {
+      console.warn('Nome de arquivo inválido:', originalName);
+      originalName = 'arquivo_sem_nome';
+    }
+
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    const extension = originalName.split('.').pop();
+    const extension = originalName.split('.').pop() || 'txt';
     const baseName = originalName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9]/g, '_');
-    
+
     const prefix = userId ? `${userId}/` : '';
     return `${prefix}${timestamp}_${random}_${baseName}.${extension}`;
   }
@@ -122,6 +128,16 @@ class SupabaseStorageService {
     onProgress?: (progress: UploadProgress) => void
   ): Promise<SupabaseFile> {
     try {
+      // Verificar se o arquivo é válido
+      if (!file || !(file instanceof File)) {
+        throw new Error('Arquivo inválido fornecido');
+      }
+
+      // Verificar se o arquivo tem nome
+      if (!file.name || typeof file.name !== 'string') {
+        throw new Error('Arquivo sem nome válido');
+      }
+
       // Validar arquivo
       const validation = this.validateFile(file);
       if (!validation.valid) {
@@ -140,10 +156,10 @@ class SupabaseStorageService {
 
       // Upload via servidor para contornar RLS
       console.log('🚀 Fazendo upload via servidor para Supabase Storage...');
-      
+
       // CORREÇÃO CRÍTICA: Usar FormData em vez de base64 para evitar corrupção
       console.log('🚀 Fazendo upload direto com FormData...');
-      
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('fileName', filename);
@@ -161,13 +177,13 @@ class SupabaseStorageService {
       // Enviar FormData para evitar corrupção de arquivos binários
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30 minutos
-      
+
       const response = await fetch('/api/supabase-upload-formdata', {
         method: 'POST',
         body: formData, // FormData sem Content-Type header
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -222,18 +238,35 @@ class SupabaseStorageService {
     } = {},
     onProgress?: (progress: UploadProgress[]) => void
   ): Promise<SupabaseFile[]> {
+    // Verificar se os arquivos são válidos
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      throw new Error('Lista de arquivos inválida ou vazia');
+    }
+
+    // Verificar cada arquivo individualmente
+    for (const file of files) {
+      if (!file || !(file instanceof File)) {
+        throw new Error('Arquivo inválido na lista');
+      }
+      if (!file.name || typeof file.name !== 'string') {
+        throw new Error('Arquivo sem nome válido na lista');
+      }
+    }
+
     const results: SupabaseFile[] = [];
     const progressArray: UploadProgress[] = files.map(file => ({
-      filename: file.name,
+      filename: file.name || 'arquivo_sem_nome',
       progress: 0,
       status: 'uploading' as const
     }));
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const fileName = file.name || 'arquivo_sem_nome';
+
       try {
-        console.log(`📤 Iniciando upload do arquivo ${i + 1}/${files.length}:`, file.name);
-        
+        console.log(`📤 Iniciando upload do arquivo ${i + 1}/${files.length}:`, fileName);
+
         const result = await this.uploadFileToSupabase(
           file,
           metadata,
@@ -245,9 +278,9 @@ class SupabaseStorageService {
         results.push(result);
         console.log(`✅ Upload concluído:`, result);
       } catch (error) {
-        console.error(`❌ Erro no upload do arquivo ${file.name}:`, error);
+        console.error(`❌ Erro no upload do arquivo ${fileName}:`, error);
         progressArray[i] = {
-          filename: file.name,
+          filename: fileName,
           progress: 0,
           status: 'error',
           error: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -338,7 +371,7 @@ class SupabaseStorageService {
   async deleteFile(fileName: string, bucket: string = 'documents'): Promise<boolean> {
     try {
       console.log('🗑️ DELETANDO arquivo do Supabase Storage:', fileName, 'bucket:', bucket);
-      
+
       // Fazer requisição para o servidor deletar o arquivo
       const response = await fetch('/api/supabase-delete-file', {
         method: 'DELETE',
@@ -360,7 +393,7 @@ class SupabaseStorageService {
       const result = await response.json();
       console.log('✅ Arquivo deletado com sucesso:', result);
       return true;
-      
+
     } catch (error) {
       console.error('❌ Erro na exclusão do arquivo:', error);
       throw error;
@@ -447,7 +480,7 @@ class SupabaseStorageService {
   async incrementDownloadCount(fileId: string): Promise<void> {
     await supabase
       .from('files')
-      .update({ 
+      .update({
         download_count: 1, // Simplificado para evitar problemas com supabase.raw
         last_accessed: new Date().toISOString()
       })

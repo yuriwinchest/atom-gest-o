@@ -3,35 +3,26 @@
  * Responsabilidade única: Gerenciamento de cards da página inicial
  */
 
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus,
-  Eye,
-  Edit,
-  Trash2,
-  Save,
-  FileText,
-  Home,
-  Calendar,
-  User,
-  Tag,
-  Globe,
-  Settings,
-  Sparkles,
-  ImageIcon,
-  Link,
-  Upload,
-  X,
-  Phone
+    Calendar,
+    Edit,
+    Eye,
+    FileText,
+    Home,
+    Plus,
+    Save,
+    Tag,
+    Trash2,
+    User
 } from 'lucide-react';
+import React, { useState } from 'react';
 
 interface HomepageContent {
   id: number;
@@ -197,7 +188,7 @@ export const HomepageCardsManagement: React.FC = () => {
 
     try {
       let imageUrl = '';
-      
+
       // Upload da imagem se selecionada
       if (selectedImageFile) {
         imageUrl = await uploadImageToSupabase(selectedImageFile);
@@ -343,6 +334,23 @@ export const HomepageCardsManagement: React.FC = () => {
                     placeholder="Nome do autor"
                   />
                 </div>
+              </div>
+
+              {/* Opção de Publicação */}
+              <div className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={newCard.is_active}
+                  onChange={(e) => setNewCard({ ...newCard, is_active: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <label htmlFor="is_active" className="text-sm font-medium text-blue-900">
+                  🌟 Publicar na página inicial
+                </label>
+                <span className="text-xs text-blue-700 ml-2">
+                  {newCard.is_active ? '✅ Visível' : '⏸️ Rascunho'}
+                </span>
               </div>
 
               {/* Botões */}
